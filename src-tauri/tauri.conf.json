@@ -39,6 +39,9 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "macOS": {
+      "signingIdentity": "-"
+    },
     "icon": [
       "icons/Square30x30Logo.png",
       "icons/Square71x71Logo.png",
