@@ -128,6 +128,7 @@ pub struct Preferences {
     pub profiles: Vec<AccountProfile>,
     pub hotkeys: Vec<HotkeyBinding>,
     pub language: String,
+    pub theme: String,
 }
 
 impl Default for Preferences {
@@ -142,6 +143,7 @@ impl Default for Preferences {
             profiles: Vec::new(),
             hotkeys: default_hotkeys(),
             language: default_language(),
+            theme: "system".into(),
         }
     }
 }
@@ -200,6 +202,7 @@ pub struct AppState {
     pub language: Mutex<String>,
     pub traces: Mutex<Vec<TraceEntry>>,
     pub notif_mode: Mutex<String>,
+    pub theme: Mutex<String>,
 }
 
 impl AppState {
@@ -226,6 +229,7 @@ impl AppState {
             language: Mutex::new(prefs.language),
             traces: Mutex::new(Vec::new()),
             notif_mode: Mutex::new("unknown".into()),
+            theme: Mutex::new(prefs.theme),
         }
     }
 
@@ -233,6 +237,7 @@ impl AppState {
         let profiles = self.profiles.lock().unwrap();
         let hotkeys = self.hotkeys.lock().unwrap();
         let language = self.language.lock().unwrap();
+        let theme = self.theme.lock().unwrap();
         let prefs = Preferences {
             autoswitch_enabled: self.autoswitch_enabled.load(Ordering::Relaxed),
             group_invite_enabled: self.group_invite_enabled.load(Ordering::Relaxed),
@@ -243,10 +248,12 @@ impl AppState {
             profiles: profiles.clone(),
             hotkeys: hotkeys.clone(),
             language: language.clone(),
+            theme: theme.clone(),
         };
         drop(profiles);
         drop(hotkeys);
         drop(language);
+        drop(theme);
         save_preferences(&prefs);
     }
 
@@ -327,6 +334,15 @@ impl AppState {
 
     pub fn set_language(&self, lang: String) {
         *self.language.lock().unwrap() = lang;
+        self.save();
+    }
+
+    pub fn get_theme(&self) -> String {
+        self.theme.lock().unwrap().clone()
+    }
+
+    pub fn set_theme(&self, theme: String) {
+        *self.theme.lock().unwrap() = theme;
         self.save();
     }
 

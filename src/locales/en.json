@@ -43,6 +43,11 @@
   "settings.caution": "caution",
   "settings.on": "ON",
   "settings.off": "OFF",
+  "settings.display": "Display",
+  "settings.theme": "Theme",
+  "settings.theme_system": "System",
+  "settings.theme_light": "Light",
+  "settings.theme_dark": "Dark",
 
   "hotkeys.title": "Hotkeys",
   "hotkeys.label": "Hotkeys:",

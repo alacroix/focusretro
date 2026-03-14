@@ -43,6 +43,11 @@
   "settings.caution": "precaución",
   "settings.on": "ON",
   "settings.off": "OFF",
+  "settings.display": "Visualización",
+  "settings.theme": "Tema",
+  "settings.theme_system": "Sistema",
+  "settings.theme_light": "Claro",
+  "settings.theme_dark": "Oscuro",
 
   "hotkeys.title": "Atajos",
   "hotkeys.label": "Atajos:",

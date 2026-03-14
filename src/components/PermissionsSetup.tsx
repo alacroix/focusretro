@@ -13,8 +13,8 @@ function StatusBadge({ granted }: { granted: boolean }) {
     <span
       className={`text-[11px] px-2 py-0.5 rounded font-medium ${
         granted
-          ? "bg-emerald-600/20 text-emerald-400"
-          : "bg-red-900/40 text-red-400"
+          ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-600/20 dark:text-emerald-400"
+          : "bg-red-50 text-red-600 dark:bg-red-900/40 dark:text-red-400"
       }`}
     >
       {granted ? t("setup.status_granted") : t("setup.status_missing")}
@@ -41,26 +41,26 @@ function PermissionCard({
     <div
       className={`mx-4 mt-3 p-4 rounded-lg border ${
         granted
-          ? "border-emerald-800/50 bg-emerald-950/20"
-          : "border-amber-800/50 bg-amber-950/20"
+          ? "border-emerald-200 bg-emerald-50 dark:border-emerald-800/50 dark:bg-emerald-950/20"
+          : "border-amber-200 bg-amber-50 dark:border-amber-800/50 dark:bg-amber-950/20"
       }`}
     >
       <div className="flex items-start gap-3">
         <div
           className={`mt-0.5 shrink-0 ${
-            granted ? "text-emerald-400" : "text-amber-400"
+            granted ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"
           }`}
         >
           {icon}
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-sm font-medium text-gray-200">{name}</span>
+            <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{name}</span>
             <StatusBadge granted={granted} />
           </div>
-          <p className="text-xs text-gray-400 leading-relaxed">{why}</p>
+          <p className="text-xs text-gray-500 leading-relaxed">{why}</p>
           {note && (
-            <p className="text-[11px] text-gray-600 mt-1.5 leading-relaxed">
+            <p className="text-[11px] text-gray-400 dark:text-gray-600 mt-1.5 leading-relaxed">
               {note}
             </p>
           )}
@@ -78,9 +78,9 @@ function PermissionsSetup({ accessibility, screenRecording, onRecheck }: Props) 
   const allGranted = accessibility && screenRecording;
 
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100 flex flex-col">
+    <div className="min-h-screen bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 flex flex-col">
       <div className="px-4 pt-4">
-        <h2 className="text-sm font-semibold text-gray-200">
+        <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-200">
           {t("setup.title")}
         </h2>
         <p className="text-xs text-gray-500 mt-0.5">{t("setup.subtitle")}</p>
@@ -101,7 +101,7 @@ function PermissionsSetup({ accessibility, screenRecording, onRecheck }: Props) 
           <button
             type="button"
             onClick={() => openSettings("accessibility")}
-            className="text-xs px-3 py-1.5 rounded-md bg-amber-800/40 hover:bg-amber-700/50 text-amber-200 transition-colors"
+            className="text-xs px-3 py-1.5 rounded-md bg-amber-100 hover:bg-amber-200 text-amber-800 dark:bg-amber-800/40 dark:hover:bg-amber-700/50 dark:text-amber-200 transition-colors"
           >
             {t("setup.open_settings")}
           </button>
@@ -123,14 +123,14 @@ function PermissionsSetup({ accessibility, screenRecording, onRecheck }: Props) 
             <button
               type="button"
               onClick={() => requestScreenRecording()}
-              className="text-xs px-3 py-1.5 rounded-md bg-indigo-700/50 hover:bg-indigo-600/60 text-indigo-200 transition-colors"
+              className="text-xs px-3 py-1.5 rounded-md bg-indigo-100 hover:bg-indigo-200 text-indigo-800 dark:bg-indigo-700/50 dark:hover:bg-indigo-600/60 dark:text-indigo-200 transition-colors"
             >
               {t("setup.request_permission")}
             </button>
             <button
               type="button"
               onClick={() => openSettings("screen_recording")}
-              className="text-xs px-3 py-1.5 rounded-md bg-amber-800/40 hover:bg-amber-700/50 text-amber-200 transition-colors"
+              className="text-xs px-3 py-1.5 rounded-md bg-amber-100 hover:bg-amber-200 text-amber-800 dark:bg-amber-800/40 dark:hover:bg-amber-700/50 dark:text-amber-200 transition-colors"
             >
               {t("setup.open_settings")}
             </button>
@@ -138,11 +138,11 @@ function PermissionsSetup({ accessibility, screenRecording, onRecheck }: Props) 
         }
       />
 
-      <div className="flex items-center justify-between mx-4 mt-6 pt-4 border-t border-gray-800">
+      <div className="flex items-center justify-between mx-4 mt-6 pt-4 border-t border-gray-200 dark:border-gray-800">
         <button
           type="button"
           onClick={onRecheck}
-          className="text-xs px-3 py-1.5 rounded-md bg-gray-800 hover:bg-gray-700 text-gray-300 transition-colors"
+          className="text-xs px-3 py-1.5 rounded-md bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition-colors"
         >
           {t("setup.check_again")}
         </button>
@@ -153,7 +153,7 @@ function PermissionsSetup({ accessibility, screenRecording, onRecheck }: Props) 
           className={`text-xs px-4 py-1.5 rounded-md font-medium transition-colors ${
             allGranted
               ? "bg-indigo-600 hover:bg-indigo-500 text-white"
-              : "bg-gray-800 text-gray-600 cursor-not-allowed"
+              : "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed"
           }`}
         >
           {t("setup.continue")}

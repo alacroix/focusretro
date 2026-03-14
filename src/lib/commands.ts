@@ -199,3 +199,11 @@ export function getShowDebug(): Promise<boolean> {
 export function toggleShowDebug(): Promise<boolean> {
   return invoke("toggle_show_debug");
 }
+
+export function getTheme(): Promise<string> {
+  return invoke("get_theme");
+}
+
+export function setTheme(theme: string): Promise<void> {
+  return invoke("set_theme", { theme });
+}

@@ -54,6 +54,8 @@ pub fn run() {
             commands::get_notif_mode,
             commands::toggle_show_debug,
             commands::get_show_debug,
+            commands::get_theme,
+            commands::set_theme,
         ])
         .setup(|app| {
             setup_tray(app)?;

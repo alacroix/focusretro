@@ -44,9 +44,9 @@ function ToggleRow({
     <div className="flex items-center justify-between py-2">
       <div className="flex-1 mr-3">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-gray-200">{label}</span>
+          <span className="text-xs font-medium text-gray-800 dark:text-gray-200">{label}</span>
           {warn && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-900/50 text-amber-400">
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 dark:bg-amber-900/50 dark:text-amber-400">
               {warnLabel}
             </span>
           )}
@@ -59,8 +59,8 @@ function ToggleRow({
         onClick={onToggle}
         className={`text-[11px] px-2.5 py-1 rounded-md transition-colors shrink-0 w-12 ${
           enabled
-            ? "bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/30"
-            : "bg-gray-800 text-gray-500 hover:bg-gray-700"
+            ? "bg-emerald-50 text-emerald-600 hover:bg-emerald-100 dark:bg-emerald-600/20 dark:text-emerald-400 dark:hover:bg-emerald-600/30"
+            : "bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-500 dark:hover:bg-gray-700"
         }`}
       >
         {enabled ? onLabel : offLabel}
@@ -120,14 +120,14 @@ function HotkeyRow({
 }) {
   return (
     <div className="flex items-center justify-between py-2">
-      <span className="text-xs text-gray-300">{actionLabel}</span>
+      <span className="text-xs text-gray-700 dark:text-gray-300">{actionLabel}</span>
       <div className="flex items-center gap-2">
         {recording ? (
-          <span className="text-[11px] text-indigo-400 animate-pulse">
+          <span className="text-[11px] text-indigo-500 dark:text-indigo-400 animate-pulse">
             {pressKeyLabel}
           </span>
         ) : (
-          <kbd className="px-1.5 py-0.5 bg-gray-800 rounded text-[11px] text-gray-400 font-mono">
+          <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-[11px] text-gray-700 dark:text-gray-400 font-mono">
             {binding ? formatHotkeyLabel(binding) : "—"}
           </kbd>
         )}
@@ -135,13 +135,68 @@ function HotkeyRow({
           onClick={() => onRecord(action)}
           className={`text-[11px] px-2 py-1 rounded-md transition-colors ${
             recording
-              ? "bg-indigo-600/20 text-indigo-400"
-              : "bg-gray-800 text-gray-500 hover:bg-gray-700"
+              ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-600/20 dark:text-indigo-400"
+              : "bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-500 dark:hover:bg-gray-700"
           }`}
         >
           {recording ? cancelLabel : changeLabel}
         </button>
       </div>
+    </div>
+  );
+}
+
+function ThemeSelector({ theme, onChange }: { theme: string; onChange: (t: string) => void }) {
+  const { t } = useTranslation();
+  const options = [
+    {
+      value: "system",
+      label: t("settings.theme_system"),
+      icon: (
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="2" y="3" width="20" height="14" rx="2" />
+          <path d="M8 21h8M12 17v4" />
+        </svg>
+      ),
+    },
+    {
+      value: "light",
+      label: t("settings.theme_light"),
+      icon: (
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="5" />
+          <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+        </svg>
+      ),
+    },
+    {
+      value: "dark",
+      label: t("settings.theme_dark"),
+      icon: (
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+        </svg>
+      ),
+    },
+  ];
+
+  return (
+    <div className="flex gap-1 mt-1">
+      {options.map((opt) => (
+        <button
+          key={opt.value}
+          onClick={() => onChange(opt.value)}
+          title={opt.label}
+          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] transition-colors ${
+            theme === opt.value
+              ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-600/20 dark:text-indigo-400"
+              : "bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-500 dark:hover:bg-gray-700"
+          }`}
+        >
+          {opt.icon}
+          {opt.label}
+        </button>
+      ))}
     </div>
   );
 }
@@ -152,7 +207,17 @@ const KONAMI = [
   "b", "a",
 ];
 
-function Settings({ showDebug, onToggleDebug }: { showDebug: boolean; onToggleDebug: (v: boolean) => void }) {
+function Settings({
+  showDebug,
+  onToggleDebug,
+  theme,
+  onThemeChange,
+}: {
+  showDebug: boolean;
+  onToggleDebug: (v: boolean) => void;
+  theme: string;
+  onThemeChange: (t: string) => void;
+}) {
   const { t, i18n } = useTranslation();
   const [autoswitch, setAutoswitch] = useState(true);
   const [groupInvite, setGroupInvite] = useState(true);
@@ -251,11 +316,11 @@ function Settings({ showDebug, onToggleDebug }: { showDebug: boolean; onToggleDe
 
   return (
     <div>
-      <h2 className="text-sm font-medium text-gray-400 uppercase tracking-wider mb-2">
+      <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
         {t("settings.title")}
       </h2>
 
-      <div className="divide-y divide-gray-800/50">
+      <div className="divide-y divide-gray-200 dark:divide-gray-800/50">
         <ToggleRow
           label={t("settings.autoswitch")}
           description={t("settings.autoswitch_desc")}
@@ -292,11 +357,11 @@ function Settings({ showDebug, onToggleDebug }: { showDebug: boolean; onToggleDe
 
       {unlocked && (
         <>
-          <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wider mt-5 mb-2">
+          <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mt-5 mb-2">
             {t("settings.experimental")}
           </h3>
-          <p className="text-xs text-amber-400/80 mb-3">{t("settings.experimental_warning")}</p>
-          <div className="divide-y divide-gray-800/50">
+          <p className="text-xs text-amber-600 dark:text-amber-400/80 mb-3">{t("settings.experimental_warning")}</p>
+          <div className="divide-y divide-gray-200 dark:divide-gray-800/50">
             <ToggleRow
               label={t("settings.auto_accept")}
               description={t("settings.auto_accept_desc")}
@@ -317,11 +382,34 @@ function Settings({ showDebug, onToggleDebug }: { showDebug: boolean; onToggleDe
         </>
       )}
 
-      <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wider mt-5 mb-2">
+      <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mt-5 mb-3">
+        {t("settings.display")}
+      </h3>
+
+      <div className="divide-y divide-gray-200 dark:divide-gray-800/50">
+        <div className="flex items-center justify-between py-2">
+          <span className="text-xs font-medium text-gray-800 dark:text-gray-200">{t("settings.theme")}</span>
+          <ThemeSelector theme={theme} onChange={onThemeChange} />
+        </div>
+        <div className="flex items-center justify-between py-2">
+          <span className="text-xs font-medium text-gray-800 dark:text-gray-200">{t("language.title")}</span>
+          <select
+            value={language}
+            onChange={(e) => handleLanguageChange(e.target.value)}
+            className="text-xs bg-transparent text-gray-700 dark:text-gray-300 focus:outline-none cursor-pointer"
+          >
+            <option value="en">🇬🇧 {t("language.en")}</option>
+            <option value="fr">🇫🇷 {t("language.fr")}</option>
+            <option value="es">🇪🇸 {t("language.es")}</option>
+          </select>
+        </div>
+      </div>
+
+      <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mt-5 mb-2">
         {t("hotkeys.title")}
       </h3>
 
-      <div className="divide-y divide-gray-800/50">
+      <div className="divide-y divide-gray-200 dark:divide-gray-800/50">
         {hotkeyActions.map(({ action, label }) => (
           <HotkeyRow
             key={action}
@@ -339,21 +427,7 @@ function Settings({ showDebug, onToggleDebug }: { showDebug: boolean; onToggleDe
         ))}
       </div>
 
-      <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wider mt-5 mb-2">
-        {t("language.title")}
-      </h3>
-
-      <select
-        value={language}
-        onChange={(e) => handleLanguageChange(e.target.value)}
-        className="text-xs bg-transparent text-gray-300 focus:outline-none cursor-pointer"
-      >
-        <option value="en">🇬🇧 {t("language.en")}</option>
-        <option value="fr">🇫🇷 {t("language.fr")}</option>
-        <option value="es">🇪🇸 {t("language.es")}</option>
-      </select>
-
-      <p className="mt-6 text-center text-[11px] text-gray-600">
+      <p className="mt-6 text-center text-[11px] text-gray-400 dark:text-gray-600">
         FocusRetro v{version}
       </p>
     </div>

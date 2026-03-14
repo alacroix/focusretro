@@ -135,17 +135,17 @@ function AccountList({ accounts, focusedName, onRefresh, onUpdate, onFocused }: 
         }}
       >
         <div
-          className="w-[min(260px,90vw)] max-h-[70vh] overflow-y-auto px-3 py-2.5 bg-gray-900 rounded-lg shadow-xl border border-gray-700"
+          className="w-[min(260px,90vw)] max-h-[70vh] overflow-y-auto px-3 py-2.5 bg-white dark:bg-gray-900 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-center justify-between mb-2">
-            <p className="text-[11px] font-medium text-gray-300">
+            <p className="text-[11px] font-medium text-gray-700 dark:text-gray-300">
               {editingAccount.character_name} — {t("accounts.customize")}
             </p>
             <button
               type="button"
               onClick={() => setEditingName(null)}
-              className="text-gray-500 hover:text-gray-300 text-lg leading-none"
+              className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 text-lg leading-none"
               aria-label="Close"
             >
               ×
@@ -162,9 +162,9 @@ function AccountList({ accounts, focusedName, onRefresh, onUpdate, onFocused }: 
                   onClick={() =>
                     handleColorChange(editingAccount.character_name, null)
                   }
-                  className={`w-5 h-5 rounded-full border-2 bg-gray-700 ${
+                  className={`w-5 h-5 rounded-full border-2 bg-gray-200 dark:bg-gray-700 ${
                     (editingAccount.color ?? null) === null
-                      ? "border-white"
+                      ? "border-gray-900 dark:border-white"
                       : "border-transparent"
                   }`}
                   title={t("accounts.default_color")}
@@ -178,7 +178,7 @@ function AccountList({ accounts, focusedName, onRefresh, onUpdate, onFocused }: 
                     }
                     className={`w-5 h-5 rounded-full border-2 ${
                       editingAccount.color === c
-                        ? "border-white"
+                        ? "border-gray-900 dark:border-white"
                         : "border-transparent"
                     }`}
                     style={{ backgroundColor: c }}
@@ -197,9 +197,9 @@ function AccountList({ accounts, focusedName, onRefresh, onUpdate, onFocused }: 
                   onClick={() =>
                     handleIconChange(editingAccount.character_name, null)
                   }
-                  className={`w-7 h-7 rounded border-2 bg-gray-800 flex items-center justify-center text-[9px] text-gray-500 shrink-0 ${
+                  className={`w-7 h-7 rounded border-2 bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-[9px] text-gray-500 shrink-0 ${
                     (editingAccount.icon_path ?? null) === null
-                      ? "border-white"
+                      ? "border-gray-900 dark:border-white"
                       : "border-transparent"
                   }`}
                   title={t("accounts.no_icon")}
@@ -213,9 +213,9 @@ function AccountList({ accounts, focusedName, onRefresh, onUpdate, onFocused }: 
                     onClick={() =>
                       handleIconChange(editingAccount.character_name, icon)
                     }
-                    className={`w-7 h-7 rounded border-2 overflow-hidden flex items-center justify-center bg-gray-800 shrink-0 p-0 ${
+                    className={`w-7 h-7 rounded border-2 overflow-hidden flex items-center justify-center bg-gray-100 dark:bg-gray-800 shrink-0 p-0 ${
                       editingAccount.icon_path === icon
-                        ? "border-white"
+                        ? "border-gray-900 dark:border-white"
                         : "border-transparent"
                     }`}
                     title={icon}
@@ -240,18 +240,18 @@ function AccountList({ accounts, focusedName, onRefresh, onUpdate, onFocused }: 
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <h2 className="text-sm font-medium text-gray-400 uppercase tracking-wider">
+          <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
             {t("accounts.title")}
           </h2>
           {accounts.length > 0 && (
-            <span className="text-[10px] font-mono bg-gray-800 text-gray-500 px-1.5 py-0.5 rounded">
+            <span className="text-[10px] font-mono bg-gray-100 dark:bg-gray-800 text-gray-500 px-1.5 py-0.5 rounded">
               {accounts.length}
             </span>
           )}
         </div>
         <button
           onClick={onRefresh}
-          className="w-6 h-6 flex items-center justify-center rounded text-gray-500 hover:text-gray-300 hover:bg-gray-800 transition-colors"
+          className="w-6 h-6 flex items-center justify-center rounded text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
           title={t("accounts.refresh")}
         >
           <svg
@@ -273,7 +273,7 @@ function AccountList({ accounts, focusedName, onRefresh, onUpdate, onFocused }: 
 
       {/* Empty state */}
       {accounts.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-10 text-gray-600">
+        <div className="flex flex-col items-center justify-center py-10 text-gray-400 dark:text-gray-600">
           <svg
             width="44"
             height="44"
@@ -297,7 +297,6 @@ function AccountList({ accounts, focusedName, onRefresh, onUpdate, onFocused }: 
             const account = accounts[accountIdx];
             const isDragging =
               dragState !== null && dragState.sourceIdx === accountIdx;
-            const accentColor = account.color ?? "#374151";
 
             return (
               <li
@@ -308,16 +307,16 @@ function AccountList({ accounts, focusedName, onRefresh, onUpdate, onFocused }: 
                 className={`touch-none transition-[transform,opacity] duration-150 ease-out ${isDragging ? "opacity-60 scale-[1.02] z-10 relative" : ""}`}
               >
                 <div
-                  className={`group relative flex items-center h-9 bg-gray-900 rounded-lg border overflow-hidden transition-colors ${
+                  className={`group relative flex items-center h-9 bg-gray-50 dark:bg-gray-900 rounded-lg border overflow-hidden transition-colors ${
                     isDragging
                       ? "border-indigo-500 shadow-lg shadow-indigo-500/10"
-                      : "border-gray-800 hover:border-gray-700"
+                      : "border-gray-200 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700"
                   } cursor-grab active:cursor-grabbing`}
                 >
                   {/* Colored left accent bar */}
                   <div
                     className="absolute left-0 top-0 bottom-0 w-[3px] shrink-0"
-                    style={{ backgroundColor: account.character_name === focusedName ? "#f97316" : "#374151" }}
+                    style={{ backgroundColor: account.character_name === focusedName ? "#f97316" : "#d1d5db" }}
                   />
 
                   {/* Drag handle */}
@@ -326,7 +325,7 @@ function AccountList({ accounts, focusedName, onRefresh, onUpdate, onFocused }: 
                       width="8"
                       height="10"
                       viewBox="0 0 8 10"
-                      className="text-gray-600"
+                      className="text-gray-300 dark:text-gray-600"
                       fill="currentColor"
                     >
                       <circle cx="2" cy="2" r="1" />
@@ -352,8 +351,8 @@ function AccountList({ accounts, focusedName, onRefresh, onUpdate, onFocused }: 
                     style={{
                       backgroundColor: account.icon_path
                         ? "transparent"
-                        : (account.color ?? "#4b5563"),
-                      borderColor: account.color ?? "#374151",
+                        : (account.color ?? "#6b7280"),
+                      borderColor: account.color ?? "#d1d5db",
                     }}
                     title={t("accounts.customize")}
                   >
@@ -372,7 +371,7 @@ function AccountList({ accounts, focusedName, onRefresh, onUpdate, onFocused }: 
 
                   {/* Name */}
                   <div className="flex-1 min-w-0">
-                    <span className="text-xs font-medium truncate block">
+                    <span className="text-xs font-medium truncate block text-gray-800 dark:text-gray-200">
                       {account.character_name}
                     </span>
                   </div>
@@ -386,8 +385,8 @@ function AccountList({ accounts, focusedName, onRefresh, onUpdate, onFocused }: 
                       }}
                       className={`w-6 h-6 flex items-center justify-center transition-colors rounded ${
                         account.is_principal
-                          ? "text-amber-400"
-                          : "text-gray-600 opacity-0 group-hover:opacity-100 hover:text-amber-400"
+                          ? "text-amber-500 dark:text-amber-400"
+                          : "text-gray-300 dark:text-gray-600 opacity-0 group-hover:opacity-100 hover:text-amber-500 dark:hover:text-amber-400"
                       }`}
                       title={
                         account.is_principal
@@ -412,7 +411,7 @@ function AccountList({ accounts, focusedName, onRefresh, onUpdate, onFocused }: 
                         focusAccount(account.character_name);
                         onFocused(account.character_name);
                       }}
-                      className="w-6 h-6 flex items-center justify-center text-gray-500 opacity-0 group-hover:opacity-100 hover:text-indigo-400 transition-colors rounded"
+                      className="w-6 h-6 flex items-center justify-center text-gray-400 dark:text-gray-500 opacity-0 group-hover:opacity-100 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors rounded"
                       title={t("accounts.focus_window")}
                     >
                       <svg

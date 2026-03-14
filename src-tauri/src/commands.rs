@@ -243,3 +243,13 @@ pub fn toggle_show_debug(state: tauri::State<'_, Arc<AppState>>) -> bool {
 pub fn get_show_debug(state: tauri::State<'_, Arc<AppState>>) -> bool {
     state.is_show_debug()
 }
+
+#[tauri::command]
+pub fn get_theme(state: tauri::State<'_, Arc<AppState>>) -> String {
+    state.get_theme()
+}
+
+#[tauri::command]
+pub fn set_theme(theme: String, state: tauri::State<'_, Arc<AppState>>) {
+    state.set_theme(theme);
+}

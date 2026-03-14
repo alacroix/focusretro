@@ -55,13 +55,13 @@ function MessageList() {
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
-        <h2 className="text-sm font-medium text-gray-400 uppercase tracking-wider">
+        <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
           {t("messages.title")}
         </h2>
         {messages.length > 0 && (
           <button
             onClick={handleClear}
-            className="text-xs px-2 py-1 rounded bg-gray-800 hover:bg-gray-700 text-gray-300 transition-colors"
+            className="text-xs px-2 py-1 rounded bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition-colors"
           >
             {t("messages.clear")}
           </button>
@@ -69,7 +69,7 @@ function MessageList() {
       </div>
 
       {messages.length === 0 ? (
-        <div className="text-center py-8 text-gray-600">
+        <div className="text-center py-8 text-gray-400 dark:text-gray-600">
           <p className="text-sm">{t("messages.empty_title")}</p>
           <p className="text-xs mt-1">{t("messages.empty_desc")}</p>
         </div>
@@ -78,9 +78,9 @@ function MessageList() {
           {messages.map((msg, i) => (
             <p
               key={`${msg.timestamp}-${i}`}
-              className="text-[11px] leading-4 text-sky-400"
+              className="text-[11px] leading-4 text-sky-600 dark:text-sky-400"
             >
-              <span className="text-sky-600">[{formatTime(msg.timestamp)}]</span>{" "}
+              <span className="text-sky-800 dark:text-sky-600">[{formatTime(msg.timestamp)}]</span>{" "}
               {t("messages.from")} <span className="font-bold">{msg.sender}</span> : {renderMessage(msg.message)}
             </p>
           ))}

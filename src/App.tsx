@@ -16,10 +16,24 @@ import {
   getHotkeys,
   refreshAccounts,
   getShowDebug,
+  getTheme,
+  setTheme,
 } from "./lib/commands";
 import i18n from "./i18n";
 
 type Tab = "accounts" | "messages" | "settings" | "debug";
+
+function applyThemeClass(theme: string) {
+  const html = document.documentElement;
+  if (theme === "dark") {
+    html.classList.add("dark");
+  } else if (theme === "light") {
+    html.classList.remove("dark");
+  } else {
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    html.classList.toggle("dark", prefersDark);
+  }
+}
 
 function App() {
   const { t } = useTranslation();
@@ -33,6 +47,7 @@ function App() {
   const [focusedName, setFocusedName] = useState<string | null>(null);
   const [pendingUpdate, setPendingUpdate] = useState<Update | null>(null);
   const [updateStatus, setUpdateStatus] = useState<"idle" | "downloading" | "done">("idle");
+  const [theme, setThemeState] = useState("system");
 
   useEffect(() => {
     refreshAccounts().then(setAccounts);
@@ -48,6 +63,10 @@ function App() {
     });
     getHotkeys().then(setHotkeys);
     getShowDebug().then(setShowDebug);
+    getTheme().then((t) => {
+      setThemeState(t);
+      applyThemeClass(t);
+    });
     check().then((u) => { if (u?.available) setPendingUpdate(u); }).catch(() => {});
 
     const unlistenAccounts = listen<AccountView[]>("accounts-updated", (e) => {
@@ -68,6 +87,23 @@ function App() {
       unlistenFocus.then((f) => f());
     };
   }, []);
+
+  useEffect(() => {
+    applyThemeClass(theme);
+
+    if (theme === "system") {
+      const mq = window.matchMedia("(prefers-color-scheme: dark)");
+      const handler = () => applyThemeClass("system");
+      mq.addEventListener("change", handler);
+      return () => mq.removeEventListener("change", handler);
+    }
+  }, [theme]);
+
+  const handleThemeChange = (newTheme: string) => {
+    applyThemeClass(newTheme);
+    setThemeState(newTheme);
+    setTheme(newTheme).catch(() => {});
+  };
 
   const visibleTabs = (["accounts", "messages", "settings", ...(showDebug ? ["debug"] : [])] as Tab[]);
 
@@ -108,7 +144,7 @@ function App() {
   };
 
   if (!permissionsChecked) {
-    return <div className="min-h-screen bg-gray-950" />;
+    return <div className="min-h-screen bg-white dark:bg-gray-950" />;
   }
 
   if (!hasAccessibility || !hasScreenRecording) {
@@ -122,9 +158,9 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100 flex flex-col">
+    <div className="min-h-screen bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 flex flex-col">
 {pendingUpdate && updateStatus === "idle" && (
-        <div className="mx-4 mt-3 px-3 py-2 bg-indigo-950/50 border border-indigo-800/50 rounded-lg text-sm text-indigo-200 flex items-center justify-between gap-2">
+        <div className="mx-4 mt-3 px-3 py-2 bg-indigo-50 border border-indigo-200 dark:bg-indigo-950/50 dark:border-indigo-800/50 rounded-lg text-sm text-indigo-700 dark:text-indigo-200 flex items-center justify-between gap-2">
           <span>{t("update.available", { version: pendingUpdate.version })}</span>
           <button
             onClick={handleInstall}
@@ -136,13 +172,13 @@ function App() {
       )}
 
       {updateStatus === "downloading" && (
-        <div className="mx-4 mt-3 px-3 py-2 bg-indigo-950/50 border border-indigo-800/50 rounded-lg text-sm text-indigo-300 animate-pulse">
+        <div className="mx-4 mt-3 px-3 py-2 bg-indigo-50 border border-indigo-200 dark:bg-indigo-950/50 dark:border-indigo-800/50 rounded-lg text-sm text-indigo-600 dark:text-indigo-300 animate-pulse">
           {t("update.downloading")}
         </div>
       )}
 
       {updateStatus === "done" && (
-        <div className="mx-4 mt-3 px-3 py-2 bg-emerald-950/50 border border-emerald-800/50 rounded-lg text-sm text-emerald-200 flex items-center justify-between gap-2">
+        <div className="mx-4 mt-3 px-3 py-2 bg-emerald-50 border border-emerald-200 dark:bg-emerald-950/50 dark:border-emerald-800/50 rounded-lg text-sm text-emerald-700 dark:text-emerald-200 flex items-center justify-between gap-2">
           <span>{t("update.ready")}</span>
           <button
             onClick={relaunch}
@@ -153,15 +189,15 @@ function App() {
         </div>
       )}
 
-      <div className="flex border-b border-gray-800 mx-4 mt-3">
+      <div className="flex border-b border-gray-200 dark:border-gray-800 mx-4 mt-3">
         {visibleTabs.map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
             className={`px-3 py-2 text-xs font-medium transition-colors ${
               tab === t
-                ? "text-gray-100 border-b-2 border-indigo-500"
-                : "text-gray-500 hover:text-gray-300"
+                ? "text-gray-900 dark:text-gray-100 border-b-2 border-indigo-500"
+                : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
             }`}
           >
             {tabLabels[t]}
@@ -180,21 +216,21 @@ function App() {
               onFocused={setFocusedName}
             />
             {hotkeys.length > 0 && (
-              <div className="mt-auto pt-4 flex items-center justify-center gap-5 text-[10px] text-gray-400">
+              <div className="mt-auto pt-4 flex items-center justify-center gap-5 text-[10px] text-gray-500 dark:text-gray-400">
                 <span className="flex items-center gap-1.5">
-                  <kbd className="px-1.5 py-0.5 bg-gray-800 border border-gray-600 rounded font-mono text-gray-200 text-[10px]">
+                  <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded font-mono text-gray-700 dark:text-gray-200 text-[10px]">
                     {hotkeyLabelFor("prev")}
                   </kbd>
                   {t("accounts.previous")}
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <kbd className="px-1.5 py-0.5 bg-gray-800 border border-gray-600 rounded font-mono text-gray-200 text-[10px]">
+                  <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded font-mono text-gray-700 dark:text-gray-200 text-[10px]">
                     {hotkeyLabelFor("next")}
                   </kbd>
                   {t("accounts.next")}
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <kbd className="px-1.5 py-0.5 bg-gray-800 border border-gray-600 rounded font-mono text-gray-200 text-[10px]">
+                  <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded font-mono text-gray-700 dark:text-gray-200 text-[10px]">
                     {hotkeyLabelFor("principal")}
                   </kbd>
                   {t("accounts.principal")}
@@ -204,7 +240,7 @@ function App() {
           </div>
         )}
         {tab === "messages" && <MessageList />}
-        {tab === "settings" && <Settings showDebug={showDebug} onToggleDebug={setShowDebug} />}
+        {tab === "settings" && <Settings showDebug={showDebug} onToggleDebug={setShowDebug} theme={theme} onThemeChange={handleThemeChange} />}
         {tab === "debug" && <DebugPanel />}
       </main>
     </div>

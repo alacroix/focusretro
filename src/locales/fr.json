@@ -43,6 +43,11 @@
   "settings.caution": "attention",
   "settings.on": "ON",
   "settings.off": "OFF",
+  "settings.display": "Affichage",
+  "settings.theme": "Thème",
+  "settings.theme_system": "Système",
+  "settings.theme_light": "Clair",
+  "settings.theme_dark": "Sombre",
 
   "hotkeys.title": "Raccourcis",
   "hotkeys.label": "Raccourcis :",
