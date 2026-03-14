@@ -1,6 +1,6 @@
 use crate::core::{accounts, parser};
 use crate::platform;
-use crate::state::{AppState, StoredMessage};
+use crate::state::{AppState, StoredMessage, TraceEntry};
 use log::{debug, error, info};
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -33,44 +33,11 @@ fn refresh_accounts(handle: &AppHandle, state: &Arc<AppState>) {
     crate::update_tray_display(handle, state);
 }
 
-fn focus_character_with_fallback(character_name: &str, auto_accept: bool) {
-    let name = character_name.to_string();
-    let wm = platform::create_window_manager();
-    let windows = wm.list_dofus_windows();
-    info!(
-        "[Autoswitch] Found {} Dofus windows: {:?}",
-        windows.len(),
-        windows
-            .iter()
-            .map(|w| &w.character_name)
-            .collect::<Vec<_>>()
-    );
-
-    std::thread::spawn(move || {
-        std::thread::sleep(std::time::Duration::from_millis(100));
-        info!("[Autoswitch] Running fallback direct focus for {}", name);
-        let wm_fallback = platform::create_window_manager();
-        let windows = wm_fallback.list_dofus_windows();
-        if let Some(win) = windows
-            .iter()
-            .find(|w| w.character_name.eq_ignore_ascii_case(&name))
-        {
-            if let Err(e) = wm_fallback.focus_window(win) {
-                error!("[Autoswitch] Fallback focus failed: {}", e);
-            } else {
-                info!("[Autoswitch] Fallback focus succeeded for {}", name);
-            }
-        }
-
-        if auto_accept {
-            std::thread::sleep(std::time::Duration::from_millis(300));
-            info!("[Autoswitch] Auto-accept: sending Enter for {}", name);
-            let wm_enter = platform::create_window_manager();
-            if let Err(e) = wm_enter.send_enter_key() {
-                error!("[Autoswitch] Auto-accept Enter failed: {}", e);
-            }
-        }
-    });
+fn now_millis() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64
 }
 
 fn now_epoch_secs() -> u64 {
@@ -80,13 +47,65 @@ fn now_epoch_secs() -> u64 {
         .as_secs()
 }
 
+fn focus_character_with_fallback(
+    character_name: &str,
+    auto_accept: bool,
+    state: Arc<AppState>,
+    handle: AppHandle,
+    event_type: String,
+    t_notification_ms: u64,
+    t_parsed_ms: u64,
+    t_focus_triggered_ms: u64,
+) {
+    let wm = platform::create_window_manager();
+    let windows = wm.list_dofus_windows();
+    if let Some(win) = windows
+        .iter()
+        .find(|w| w.character_name.eq_ignore_ascii_case(character_name))
+    {
+        match wm.focus_window(win) {
+            Err(e) => error!("[Autoswitch] Focus failed: {}", e),
+            Ok(()) => {
+                info!("[Autoswitch] Focused {}", character_name);
+                let t_focus_done_ms = now_millis();
+                state.add_trace(TraceEntry {
+                    event_type,
+                    character_name: character_name.to_string(),
+                    t_notification_ms,
+                    t_parsed_ms,
+                    t_focus_triggered_ms,
+                    t_focus_done_ms,
+                });
+                let _ = handle.emit("trace-added", ());
+            }
+        }
+    } else {
+        info!("[Autoswitch] Window not found for {}", character_name);
+    }
+
+    if auto_accept {
+        let name = character_name.to_string();
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(300));
+            info!("[Autoswitch] Auto-accept: sending Enter for {}", name);
+            let wm_enter = platform::create_window_manager();
+            if let Err(e) = wm_enter.send_enter_key() {
+                error!("[Autoswitch] Auto-accept Enter failed: {}", e);
+            }
+        });
+    }
+}
+
 fn start_notification_listener(handle: AppHandle, state: Arc<AppState>) {
     let listener = platform::create_notification_listener();
     let callback_handle = handle.clone();
     let callback_state = state.clone();
 
     std::thread::spawn(move || {
+        let mode_state = callback_state.clone();
+        let mode_handle = callback_handle.clone();
         let result = listener.start(Box::new(move |segments| {
+            let t_notification_ms = now_millis();
             debug!("[Autoswitch] Notification segments: {:?}", segments);
 
             let event = match parser::parse_game_event(&segments) {
@@ -97,6 +116,8 @@ fn start_notification_listener(handle: AppHandle, state: Arc<AppState>) {
                 }
             };
 
+            let t_parsed_ms = now_millis();
+
             match event {
                 parser::GameEvent::Turn(turn) => {
                     if !callback_state.is_autoswitch_enabled() {
@@ -105,7 +126,17 @@ fn start_notification_listener(handle: AppHandle, state: Arc<AppState>) {
                     }
                     info!("[Autoswitch] Turn detected for: {}", turn.character_name);
                     let _ = callback_handle.emit("turn-switched", &turn.character_name);
-                    focus_character_with_fallback(&turn.character_name, false);
+                    let t_focus_triggered_ms = now_millis();
+                    focus_character_with_fallback(
+                        &turn.character_name,
+                        false,
+                        callback_state.clone(),
+                        callback_handle.clone(),
+                        "turn".into(),
+                        t_notification_ms,
+                        t_parsed_ms,
+                        t_focus_triggered_ms,
+                    );
                     true
                 }
                 parser::GameEvent::GroupInvite(invite) => {
@@ -126,7 +157,17 @@ fn start_notification_listener(handle: AppHandle, state: Arc<AppState>) {
                     );
                     let _ = callback_handle.emit("group-invite", &invite.receiver_name);
                     let accept = callback_state.is_auto_accept_enabled();
-                    focus_character_with_fallback(&invite.receiver_name, accept);
+                    let t_focus_triggered_ms = now_millis();
+                    focus_character_with_fallback(
+                        &invite.receiver_name,
+                        accept,
+                        callback_state.clone(),
+                        callback_handle.clone(),
+                        "group_invite".into(),
+                        t_notification_ms,
+                        t_parsed_ms,
+                        t_focus_triggered_ms,
+                    );
                     true
                 }
                 parser::GameEvent::Trade(trade) => {
@@ -147,7 +188,17 @@ fn start_notification_listener(handle: AppHandle, state: Arc<AppState>) {
                     );
                     let _ = callback_handle.emit("trade-request", &trade.receiver_name);
                     let accept = callback_state.is_auto_accept_enabled();
-                    focus_character_with_fallback(&trade.receiver_name, accept);
+                    let t_focus_triggered_ms = now_millis();
+                    focus_character_with_fallback(
+                        &trade.receiver_name,
+                        accept,
+                        callback_state.clone(),
+                        callback_handle.clone(),
+                        "trade".into(),
+                        t_notification_ms,
+                        t_parsed_ms,
+                        t_focus_triggered_ms,
+                    );
                     true
                 }
                 parser::GameEvent::PrivateMessage(pm) => {
@@ -170,6 +221,9 @@ fn start_notification_listener(handle: AppHandle, state: Arc<AppState>) {
                     false
                 }
             }
+        }), Box::new(move |mode| {
+            mode_state.set_notif_mode(mode.clone());
+            let _ = mode_handle.emit("notif-mode-changed", mode);
         }));
 
         if let Err(e) = result {

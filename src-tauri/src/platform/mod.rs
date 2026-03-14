@@ -27,11 +27,13 @@ pub trait WindowManager: Send + Sync {
 }
 
 pub trait NotificationListener: Send + Sync {
-    /// Start listening. Calls `on_notification` with text segments collected
-    /// from the notification banner's accessibility tree.
-    /// If the callback returns `true`, the notification banner is clicked
-    /// (dismissed), which also focuses the source app window natively.
-    fn start(&self, on_notification: Box<dyn Fn(Vec<String>) -> bool + Send + 'static>) -> anyhow::Result<()>;
+    /// Start listening. Calls `on_notification` with text segments from the notification.
+    /// Calls `on_mode` once with either `"event"` or `"poll"` to indicate detection mode.
+    fn start(
+        &self,
+        on_notification: Box<dyn Fn(Vec<String>) -> bool + Send + 'static>,
+        on_mode: Box<dyn Fn(String) + Send + 'static>,
+    ) -> anyhow::Result<()>;
     fn stop(&self);
 }
 

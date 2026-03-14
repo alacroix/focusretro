@@ -6,6 +6,7 @@ import { relaunch } from "@tauri-apps/plugin-process";
 import AccountList from "./components/AccountList";
 import MessageList from "./components/MessageList";
 import Settings from "./components/Settings";
+import DebugPanel from "./components/DebugPanel";
 import PermissionsSetup from "./components/PermissionsSetup";
 import {
   AccountView,
@@ -14,10 +15,11 @@ import {
   getLanguage,
   getHotkeys,
   refreshAccounts,
+  getShowDebug,
 } from "./lib/commands";
 import i18n from "./i18n";
 
-type Tab = "accounts" | "messages" | "settings";
+type Tab = "accounts" | "messages" | "settings" | "debug";
 
 function App() {
   const { t } = useTranslation();
@@ -26,6 +28,7 @@ function App() {
   const [hasAccessibility, setHasAccessibility] = useState(false);
   const [hasScreenRecording, setHasScreenRecording] = useState(false);
   const [tab, setTab] = useState<Tab>("accounts");
+  const [showDebug, setShowDebug] = useState(false);
   const [hotkeys, setHotkeys] = useState<HotkeyBinding[]>([]);
   const [pendingUpdate, setPendingUpdate] = useState<Update | null>(null);
   const [updateStatus, setUpdateStatus] = useState<"idle" | "downloading" | "done">("idle");
@@ -43,6 +46,7 @@ function App() {
       }
     });
     getHotkeys().then(setHotkeys);
+    getShowDebug().then(setShowDebug);
     check().then((u) => { if (u?.available) setPendingUpdate(u); }).catch(() => {});
 
     const unlistenAccounts = listen<AccountView[]>("accounts-updated", (e) => {
@@ -59,10 +63,13 @@ unlistenHotkeys.then((f) => f());
     };
   }, []);
 
+  const visibleTabs = (["accounts", "messages", "settings", ...(showDebug ? ["debug"] : [])] as Tab[]);
+
   const tabLabels: Record<Tab, string> = {
     accounts: t("tabs.accounts"),
     messages: t("tabs.messages"),
     settings: t("tabs.settings"),
+    debug: t("tabs.debug"),
   };
 
   const formatHotkeyLabel = (hk: HotkeyBinding): string => {
@@ -167,7 +174,7 @@ unlistenHotkeys.then((f) => f());
       )}
 
       <div className="flex border-b border-gray-800 mx-4 mt-3">
-        {(["accounts", "messages", "settings"] as Tab[]).map((t) => (
+        {visibleTabs.map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -191,7 +198,8 @@ unlistenHotkeys.then((f) => f());
           />
         )}
         {tab === "messages" && <MessageList />}
-        {tab === "settings" && <Settings />}
+        {tab === "settings" && <Settings showDebug={showDebug} onToggleDebug={setShowDebug} />}
+        {tab === "debug" && <DebugPanel />}
       </main>
     </div>
   );

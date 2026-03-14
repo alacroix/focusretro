@@ -14,6 +14,16 @@ pub struct StoredMessage {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TraceEntry {
+    pub event_type: String,
+    pub character_name: String,
+    pub t_notification_ms: u64,
+    pub t_parsed_ms: u64,
+    pub t_focus_triggered_ms: u64,
+    pub t_focus_done_ms: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AccountProfile {
     pub character_name: String,
     #[serde(default)]
@@ -114,6 +124,7 @@ pub struct Preferences {
     pub trade_enabled: bool,
     pub pm_enabled: bool,
     pub auto_accept_enabled: bool,
+    pub show_debug: bool,
     pub profiles: Vec<AccountProfile>,
     pub hotkeys: Vec<HotkeyBinding>,
     pub language: String,
@@ -127,6 +138,7 @@ impl Default for Preferences {
             trade_enabled: true,
             pm_enabled: true,
             auto_accept_enabled: false,
+            show_debug: false,
             profiles: Vec::new(),
             hotkeys: default_hotkeys(),
             language: default_language(),
@@ -179,12 +191,15 @@ pub struct AppState {
     pub trade_enabled: AtomicBool,
     pub pm_enabled: AtomicBool,
     pub auto_accept_enabled: AtomicBool,
+    pub show_debug: AtomicBool,
     pub profiles: Mutex<Vec<AccountProfile>>,
     pub accounts: Mutex<Vec<GameWindow>>,
     pub current_index: Mutex<usize>,
     pub messages: Mutex<Vec<StoredMessage>>,
     pub hotkeys: Mutex<Vec<HotkeyBinding>>,
     pub language: Mutex<String>,
+    pub traces: Mutex<Vec<TraceEntry>>,
+    pub notif_mode: Mutex<String>,
 }
 
 impl AppState {
@@ -202,12 +217,15 @@ impl AppState {
             trade_enabled: AtomicBool::new(prefs.trade_enabled),
             pm_enabled: AtomicBool::new(prefs.pm_enabled),
             auto_accept_enabled: AtomicBool::new(prefs.auto_accept_enabled),
+            show_debug: AtomicBool::new(prefs.show_debug),
             profiles: Mutex::new(prefs.profiles),
             accounts: Mutex::new(Vec::new()),
             current_index: Mutex::new(0),
             messages: Mutex::new(Vec::new()),
             hotkeys: Mutex::new(hotkeys),
             language: Mutex::new(prefs.language),
+            traces: Mutex::new(Vec::new()),
+            notif_mode: Mutex::new("unknown".into()),
         }
     }
 
@@ -221,6 +239,7 @@ impl AppState {
             trade_enabled: self.trade_enabled.load(Ordering::Relaxed),
             pm_enabled: self.pm_enabled.load(Ordering::Relaxed),
             auto_accept_enabled: self.auto_accept_enabled.load(Ordering::Relaxed),
+            show_debug: self.show_debug.load(Ordering::Relaxed),
             profiles: profiles.clone(),
             hotkeys: hotkeys.clone(),
             language: language.clone(),
@@ -273,6 +292,15 @@ impl AppState {
 
     pub fn set_auto_accept(&self, enabled: bool) {
         self.auto_accept_enabled.store(enabled, Ordering::Relaxed);
+        self.save();
+    }
+
+    pub fn is_show_debug(&self) -> bool {
+        self.show_debug.load(Ordering::Relaxed)
+    }
+
+    pub fn set_show_debug(&self, enabled: bool) {
+        self.show_debug.store(enabled, Ordering::Relaxed);
         self.save();
     }
 
@@ -501,5 +529,29 @@ impl AppState {
         let mut idx = self.current_index.lock().unwrap();
         *idx = if *idx == 0 { accounts.len() - 1 } else { *idx - 1 };
         Some(accounts[*idx].clone())
+    }
+
+    pub fn add_trace(&self, entry: TraceEntry) {
+        let mut traces = self.traces.lock().unwrap();
+        if traces.len() >= 100 {
+            traces.remove(0);
+        }
+        traces.push(entry);
+    }
+
+    pub fn get_traces(&self) -> Vec<TraceEntry> {
+        self.traces.lock().unwrap().clone()
+    }
+
+    pub fn clear_traces(&self) {
+        self.traces.lock().unwrap().clear();
+    }
+
+    pub fn set_notif_mode(&self, mode: String) {
+        *self.notif_mode.lock().unwrap() = mode;
+    }
+
+    pub fn get_notif_mode(&self) -> String {
+        self.notif_mode.lock().unwrap().clone()
     }
 }

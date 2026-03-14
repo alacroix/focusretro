@@ -239,7 +239,9 @@ impl NotificationListener for MacNotificationListener {
     fn start(
         &self,
         on_notification: Box<dyn Fn(Vec<String>) -> bool + Send + 'static>,
+        on_mode: Box<dyn Fn(String) + Send + 'static>,
     ) -> anyhow::Result<()> {
+        on_mode("event".into()); // macOS always uses AXObserver events
         let pid = find_notification_center_pid()
             .ok_or_else(|| anyhow::anyhow!("NotificationCenter process not found"))?;
 

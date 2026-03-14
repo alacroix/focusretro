@@ -2,6 +2,7 @@
 "tabs.accounts": "Comptes",
   "tabs.messages": "Messages",
   "tabs.settings": "Paramètres",
+  "tabs.debug": "Debug",
 
   "accounts.title": "Comptes",
   "accounts.refresh": "Actualiser",
@@ -37,6 +38,8 @@
   "settings.experimental_warning": "Les options suivantes sont expérimentales. Utilisez-les à vos risques et périls.",
   "settings.auto_accept": "Auto-accepter",
   "settings.auto_accept_desc": "Appuie sur Entrée après focus sur invitation/échange",
+  "settings.show_debug": "Panneau debug",
+  "settings.show_debug_desc": "Afficher l'onglet Debug avec les traces de notifications",
   "settings.caution": "attention",
   "settings.on": "ON",
   "settings.off": "OFF",

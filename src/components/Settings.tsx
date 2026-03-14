@@ -13,6 +13,7 @@ import {
   togglePm,
   getAutoAcceptState,
   toggleAutoAccept,
+  toggleShowDebug,
   HotkeyBinding,
   getHotkeys,
   setHotkey,
@@ -151,7 +152,7 @@ const KONAMI = [
   "b", "a",
 ];
 
-function Settings() {
+function Settings({ showDebug, onToggleDebug }: { showDebug: boolean; onToggleDebug: (v: boolean) => void }) {
   const { t, i18n } = useTranslation();
   const [autoswitch, setAutoswitch] = useState(true);
   const [groupInvite, setGroupInvite] = useState(true);
@@ -301,6 +302,14 @@ function Settings() {
               description={t("settings.auto_accept_desc")}
               enabled={autoAccept}
               onToggle={async () => setAutoAccept(await toggleAutoAccept())}
+              onLabel={t("settings.on")}
+              offLabel={t("settings.off")}
+            />
+            <ToggleRow
+              label={t("settings.show_debug")}
+              description={t("settings.show_debug_desc")}
+              enabled={showDebug}
+              onToggle={async () => onToggleDebug(await toggleShowDebug())}
               onLabel={t("settings.on")}
               offLabel={t("settings.off")}
             />

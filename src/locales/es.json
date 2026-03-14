@@ -2,6 +2,7 @@
 "tabs.accounts": "Cuentas",
   "tabs.messages": "Mensajes",
   "tabs.settings": "Ajustes",
+  "tabs.debug": "Debug",
 
   "accounts.title": "Cuentas",
   "accounts.refresh": "Actualizar",
@@ -37,6 +38,8 @@
   "settings.experimental_warning": "Las siguientes opciones son experimentales. Úsalas bajo tu propia responsabilidad.",
   "settings.auto_accept": "Auto-aceptar",
   "settings.auto_accept_desc": "Pulsar Enter después de enfocar en invitación/intercambio",
+  "settings.show_debug": "Panel de depuración",
+  "settings.show_debug_desc": "Mostrar la pestaña Debug con trazas de notificaciones",
   "settings.caution": "precaución",
   "settings.on": "ON",
   "settings.off": "OFF",

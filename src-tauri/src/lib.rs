@@ -49,6 +49,11 @@ pub fn run() {
             commands::set_hotkey,
             commands::get_language,
             commands::set_language,
+            commands::get_traces,
+            commands::clear_traces,
+            commands::get_notif_mode,
+            commands::toggle_show_debug,
+            commands::get_show_debug,
         ])
         .setup(|app| {
             setup_tray(app)?;

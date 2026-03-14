@@ -170,3 +170,32 @@ export function getLanguage(): Promise<string> {
 export function setLanguage(lang: string): Promise<void> {
   return invoke("set_language", { lang });
 }
+
+export interface TraceEntry {
+  event_type: string;
+  character_name: string;
+  t_notification_ms: number;
+  t_parsed_ms: number;
+  t_focus_triggered_ms: number;
+  t_focus_done_ms: number;
+}
+
+export function getTraces(): Promise<TraceEntry[]> {
+  return invoke("get_traces");
+}
+
+export function clearTraces(): Promise<void> {
+  return invoke("clear_traces");
+}
+
+export function getNotifMode(): Promise<string> {
+  return invoke("get_notif_mode");
+}
+
+export function getShowDebug(): Promise<boolean> {
+  return invoke("get_show_debug");
+}
+
+export function toggleShowDebug(): Promise<boolean> {
+  return invoke("toggle_show_debug");
+}

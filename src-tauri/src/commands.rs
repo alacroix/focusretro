@@ -1,6 +1,6 @@
 use crate::core::accounts;
 use crate::platform::{self, PermissionStatus};
-use crate::state::{AccountView, AppState, HotkeyBinding, StoredMessage};
+use crate::state::{AccountView, AppState, HotkeyBinding, StoredMessage, TraceEntry};
 use std::sync::Arc;
 
 #[tauri::command]
@@ -212,4 +212,31 @@ pub fn get_language(state: tauri::State<'_, Arc<AppState>>) -> String {
 #[tauri::command]
 pub fn set_language(lang: String, state: tauri::State<'_, Arc<AppState>>) {
     state.set_language(lang);
+}
+
+#[tauri::command]
+pub fn get_traces(state: tauri::State<'_, Arc<AppState>>) -> Vec<TraceEntry> {
+    state.get_traces()
+}
+
+#[tauri::command]
+pub fn clear_traces(state: tauri::State<'_, Arc<AppState>>) {
+    state.clear_traces();
+}
+
+#[tauri::command]
+pub fn get_notif_mode(state: tauri::State<'_, Arc<AppState>>) -> String {
+    state.get_notif_mode()
+}
+
+#[tauri::command]
+pub fn toggle_show_debug(state: tauri::State<'_, Arc<AppState>>) -> bool {
+    let new_state = !state.is_show_debug();
+    state.set_show_debug(new_state);
+    new_state
+}
+
+#[tauri::command]
+pub fn get_show_debug(state: tauri::State<'_, Arc<AppState>>) -> bool {
+    state.is_show_debug()
 }

@@ -2,6 +2,7 @@
 "tabs.accounts": "Accounts",
   "tabs.messages": "Messages",
   "tabs.settings": "Settings",
+  "tabs.debug": "Debug",
 
   "accounts.title": "Accounts",
   "accounts.refresh": "Refresh",
@@ -37,6 +38,8 @@
   "settings.experimental_warning": "The following options are experimental. Use at your own risk.",
   "settings.auto_accept": "Auto-accept",
   "settings.auto_accept_desc": "Press Enter after focusing on invite/trade",
+  "settings.show_debug": "Debug panel",
+  "settings.show_debug_desc": "Show the Debug tab with notification traces",
   "settings.caution": "caution",
   "settings.on": "ON",
   "settings.off": "OFF",

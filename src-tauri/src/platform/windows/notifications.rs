@@ -3,10 +3,14 @@ use log::{error, info, warn};
 use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 use windows::Foundation::Collections::IVectorView;
+use windows::Foundation::TypedEventHandler;
 use windows::UI::Notifications::Management::{
     UserNotificationListener, UserNotificationListenerAccessStatus,
 };
-use windows::UI::Notifications::{AdaptiveNotificationText, NotificationKinds, UserNotification};
+use windows::UI::Notifications::{
+    AdaptiveNotificationText, NotificationKinds, UserNotification,
+    UserNotificationChangedEventArgs, UserNotificationChangedKind,
+};
 use windows::core::HSTRING;
 use windows::Win32::Foundation::{LPARAM, WPARAM};
 use windows::Win32::System::Com::{CoInitializeEx, COINIT_APARTMENTTHREADED};
@@ -30,7 +34,6 @@ impl WinNotificationListener {
     }
 }
 
-/// Process a single notification by ID and invoke the callback if it has toast text.
 fn process_notification(
     listener: &UserNotificationListener,
     notif_id: u32,
@@ -52,8 +55,6 @@ fn process_notification(
         }
     };
 
-    // UserNotification::Notification() returns Windows.UI.Notifications.Notification,
-    // NOT ToastNotification. Use the Visual → GetBinding → GetTextElements path.
     let visual = match notification.Visual() {
         Ok(v) => v,
         Err(e) => {
@@ -117,6 +118,7 @@ impl NotificationListener for WinNotificationListener {
     fn start(
         &self,
         on_notification: Box<dyn Fn(Vec<String>) -> bool + Send + 'static>,
+        on_mode: Box<dyn Fn(String) + Send + 'static>,
     ) -> anyhow::Result<()> {
         let thread_id_store = Arc::clone(&self.thread_id);
         let callback = Arc::new(SyncCallback(on_notification));
@@ -160,29 +162,64 @@ impl NotificationListener for WinNotificationListener {
                 return;
             }
 
-            info!("[WinNotif] Notification access granted, starting poll loop (100ms)");
+            // Shared seen_ids between event handler and poll loop so they never
+            // double-fire the same notification.
+            let seen_ids = Arc::new(Mutex::new(HashSet::<u32>::new()));
 
-            let mut seen_ids: HashSet<u32> = HashSet::new();
-
-            // Seed seen_ids with notifications already present so we don't replay old ones.
+            // Seed with notifications already present so we don't replay old ones.
             if let Ok(op) = listener.GetNotificationsAsync(NotificationKinds::Toast) {
                 if let Ok(existing) = op.get() {
                     let existing: IVectorView<UserNotification> = existing;
                     let count = existing.Size().unwrap_or(0);
+                    let mut ids = seen_ids.lock().unwrap();
                     for i in 0..count {
                         if let Ok(n) = existing.GetAt(i) {
                             if let Ok(id) = n.Id() {
-                                seen_ids.insert(id);
+                                ids.insert(id);
                             }
                         }
                     }
+                    info!("[WinNotif] Seeded {} existing notification IDs", ids.len());
                 }
             }
 
-            info!("[WinNotif] Seeded {} existing notification IDs", seen_ids.len());
+            // Try event-based detection first (requires package identity / MSIX install).
+            // Falls back gracefully to polling if unavailable.
+            let event_seen_ids = Arc::clone(&seen_ids);
+            let event_callback = Arc::clone(&callback);
+            let event_listener = listener.clone();
+            let event_result = listener.NotificationChanged(&TypedEventHandler::<
+                UserNotificationListener,
+                UserNotificationChangedEventArgs,
+            >::new(move |_, args: &Option<UserNotificationChangedEventArgs>| {
+                if let Some(args) = args {
+                    if args.ChangeKind()? == UserNotificationChangedKind::Added {
+                        let id = args.UserNotificationId()?;
+                        let is_new = event_seen_ids.lock().unwrap().insert(id);
+                        if is_new {
+                            info!("[WinNotif] Event: new notification ID {}", id);
+                            process_notification(&event_listener, id, &event_callback);
+                        }
+                    }
+                }
+                Ok(())
+            }));
+
+            let poll_interval = match event_result {
+                Ok(_token) => {
+                    info!("[WinNotif] Subscribed to NotificationChanged — poll is backup only (200ms)");
+                    on_mode("event".into());
+                    std::time::Duration::from_millis(200)
+                }
+                Err(_) => {
+                    info!("[WinNotif] NotificationChanged unavailable (unpackaged app), poll-only mode (20ms)");
+                    on_mode("poll".into());
+                    std::time::Duration::from_millis(20)
+                }
+            };
 
             loop {
-                std::thread::sleep(std::time::Duration::from_millis(100));
+                std::thread::sleep(poll_interval);
 
                 let notifications: IVectorView<UserNotification> = match listener
                     .GetNotificationsAsync(NotificationKinds::Toast)
@@ -196,27 +233,31 @@ impl NotificationListener for WinNotificationListener {
                 };
 
                 let count = notifications.Size().unwrap_or(0);
-                for i in 0..count {
-                    let notif: UserNotification = match notifications.GetAt(i) {
-                        Ok(n) => n,
-                        Err(_) => continue,
-                    };
-                    let id = match notif.Id() {
-                        Ok(id) => id,
-                        Err(_) => continue,
-                    };
-                    if seen_ids.insert(id) {
-                        info!("[WinNotif] Detected new notification ID: {}", id);
-                        process_notification(&listener, id, &callback);
+                let mut new_notif_ids: Vec<u32> = Vec::new();
+                {
+                    let mut ids = seen_ids.lock().unwrap();
+                    for i in 0..count {
+                        let notif: UserNotification = match notifications.GetAt(i) {
+                            Ok(n) => n,
+                            Err(_) => continue,
+                        };
+                        let id = match notif.Id() {
+                            Ok(id) => id,
+                            Err(_) => continue,
+                        };
+                        if ids.insert(id) {
+                            new_notif_ids.push(id);
+                        }
                     }
                 }
 
-                // Stop if WM_QUIT was posted to this thread.
-                // Peek without blocking: use PeekMessageW to drain the quit message.
+                if let Some(&id) = new_notif_ids.last() {
+                    info!("[WinNotif] Poll: {} new notification(s), processing latest ID: {}", new_notif_ids.len(), id);
+                    process_notification(&listener, id, &callback);
+                }
+
                 unsafe {
-                    use windows::Win32::UI::WindowsAndMessaging::{
-                        PM_REMOVE, PeekMessageW, MSG,
-                    };
+                    use windows::Win32::UI::WindowsAndMessaging::{PM_REMOVE, PeekMessageW, MSG};
                     let mut msg = MSG::default();
                     if PeekMessageW(&mut msg, None, WM_QUIT, WM_QUIT, PM_REMOVE).as_bool() {
                         break;
@@ -239,10 +280,7 @@ impl NotificationListener for WinNotificationListener {
             unsafe {
                 let _ = PostThreadMessageW(thread_id, WM_QUIT, WPARAM(0), LPARAM(0));
             }
-            info!(
-                "[WinNotif] Posted WM_QUIT to notification thread {}",
-                thread_id
-            );
+            info!("[WinNotif] Posted WM_QUIT to notification thread {}", thread_id);
         }
     }
 }
