@@ -15,6 +15,7 @@ export interface AccountView {
   color: string | null;
   icon_path: string | null;
   is_principal: boolean;
+  is_current: boolean;
   position: number;
 }
 
@@ -214,4 +215,12 @@ export function getAvailableLayouts(): Promise<string[]> {
 
 export function applyLayout(layout: string): Promise<void> {
   return invoke("apply_layout", { layout });
+}
+
+export function showRadial(): Promise<void> {
+  return invoke("show_radial");
+}
+
+export function hideRadial(): Promise<void> {
+  return invoke("hide_radial");
 }

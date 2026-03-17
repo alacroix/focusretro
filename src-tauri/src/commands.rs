@@ -1,7 +1,31 @@
 use crate::core::accounts;
 use crate::platform::{self, PermissionStatus};
 use crate::state::{AccountView, AppState, HotkeyBinding, StoredMessage, TraceEntry};
+use serde::Serialize;
 use std::sync::Arc;
+use tauri::{Emitter, Manager};
+
+#[derive(Serialize, Clone)]
+pub(crate) struct WheelPos {
+    pub x: Option<f64>,
+    pub y: Option<f64>,
+}
+
+/// Compute cursor position in CSS-pixel coordinates relative to the radial overlay window.
+pub(crate) fn wheel_pos_payload(w: &tauri::WebviewWindow) -> WheelPos {
+    if let (Ok(cursor), Ok(win_pos), Ok(scale)) = (
+        w.cursor_position(),
+        w.outer_position(),
+        w.scale_factor(),
+    ) {
+        WheelPos {
+            x: Some((cursor.x - win_pos.x as f64) / scale),
+            y: Some((cursor.y - win_pos.y as f64) / scale),
+        }
+    } else {
+        WheelPos { x: None, y: None }
+    }
+}
 
 #[tauri::command]
 pub fn list_accounts(state: tauri::State<'_, Arc<AppState>>) -> Vec<AccountView> {
@@ -252,6 +276,36 @@ pub fn get_theme(state: tauri::State<'_, Arc<AppState>>) -> String {
 #[tauri::command]
 pub fn set_theme(theme: String, state: tauri::State<'_, Arc<AppState>>) {
     state.set_theme(theme);
+}
+
+#[tauri::command]
+pub fn show_radial(app: tauri::AppHandle, state: tauri::State<'_, Arc<AppState>>) {
+    use std::sync::atomic::Ordering;
+    state.radial_open.store(true, Ordering::Relaxed);
+    let h = app.clone();
+    std::thread::spawn(move || {
+        if let Some(w) = h.get_webview_window("radial-overlay") {
+            let _ = w.show();
+            let _ = w.set_focus();
+            let pos = wheel_pos_payload(&w);
+            let _ = w.emit("show-radial", pos);
+        }
+    });
+}
+
+#[tauri::command]
+pub fn hide_radial(app: tauri::AppHandle, state: tauri::State<'_, Arc<AppState>>) {
+    use std::sync::atomic::Ordering;
+    state.radial_open.store(false, Ordering::Relaxed);
+    if let Some(w) = app.get_webview_window("radial-overlay") {
+        let _ = w.hide();
+    }
+    // Return focus to the current Dofus window so the game gets focus back,
+    // not the FocusRetro main window.
+    if let Some(win) = state.get_current_window() {
+        let wm = platform::create_window_manager();
+        let _ = wm.focus_window(&win);
+    }
 }
 
 #[tauri::command]

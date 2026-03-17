@@ -15,9 +15,14 @@ pub fn run() {
 
     let app_state = Arc::new(AppState::new());
 
-    tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .plugin(tauri_plugin_updater::Builder::new().build())
-        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_process::init());
+
+    #[cfg(target_os = "macos")]
+    let builder = builder.plugin(tauri_nspanel::init());
+
+    builder
         .manage(app_state)
         .invoke_handler(tauri::generate_handler![
             commands::list_accounts,
@@ -58,11 +63,17 @@ pub fn run() {
             commands::set_theme,
             commands::get_available_layouts,
             commands::apply_layout,
+            commands::show_radial,
+            commands::hide_radial,
         ])
         .setup(|app| {
             setup_tray(app)?;
             start_hotkey_listener(app);
             core::autoswitch::setup(app)?;
+
+            #[cfg(target_os = "macos")]
+            setup_radial_panel(app);
+
             Ok(())
         })
         .run(tauri::generate_context!())
@@ -83,6 +94,24 @@ fn start_hotkey_listener(app: &tauri::App) {
     {
         let _ = (handle, state);
         log::warn!("[Hotkeys] Global hotkeys not available on this platform");
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn setup_radial_panel(app: &tauri::App) {
+    use tauri_nspanel::WebviewWindowExt as NSPanelExt;
+    use log::warn;
+    match app.get_webview_window("radial-overlay") {
+        None => warn!("[Radial] radial-overlay window not found during setup"),
+        Some(overlay) => {
+            match overlay.to_panel() {
+                Err(e) => warn!("[Radial] to_panel() failed: {:?}", e),
+                Ok(panel) => {
+                    panel.set_level(200);
+                    panel.set_becomes_key_only_if_needed(true);
+                }
+            }
+        }
     }
 }
 
@@ -147,7 +176,7 @@ fn setup_tray(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         .build()?;
 
     let icon_pixels = if is_active {
-        make_circle_icon(99, 102, 241, 22) // indigo
+        make_circle_icon(246, 168, 0, 22) // brand-500
     } else {
         make_circle_icon(107, 114, 128, 22) // gray
     };

@@ -2,14 +2,15 @@ use crate::platform;
 use crate::state::{AppState, HotkeyBinding};
 use log::{error, info};
 use std::sync::Arc;
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 use windows::Win32::Foundation::{LPARAM, LRESULT, WPARAM};
 use windows::Win32::UI::Input::KeyboardAndMouse::{
     GetKeyState, VK_CONTROL, VK_LWIN, VK_MENU, VK_RWIN, VK_SHIFT,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     CallNextHookEx, GetMessageW, SetWindowsHookExW, UnhookWindowsHookEx, HHOOK, KBDLLHOOKSTRUCT,
-    MSLLHOOKSTRUCT, MSG, WH_KEYBOARD_LL, WH_MOUSE_LL, WM_KEYDOWN, WM_SYSKEYDOWN, WM_XBUTTONDOWN,
+    MSLLHOOKSTRUCT, MSG, WH_KEYBOARD_LL, WH_MOUSE_LL, WM_KEYDOWN, WM_KEYUP, WM_SYSKEYDOWN,
+    WM_SYSKEYUP, WM_XBUTTONDOWN,
 };
 
 struct HotkeyContext {
@@ -96,6 +97,25 @@ fn read_modifiers() -> (bool, bool, bool, bool) {
 }
 
 fn fire_action(action: &str, c: &HotkeyContext) {
+    if action == "radial" {
+        use std::sync::atomic::Ordering;
+        if c.state.radial_open.load(Ordering::Relaxed) {
+            return; // guard against key-repeat
+        }
+        c.state.radial_open.store(true, Ordering::Relaxed);
+        let h = c.handle.clone();
+        std::thread::spawn(move || {
+            if let Some(w) = h.get_webview_window("radial-overlay") {
+                let _ = w.set_ignore_cursor_events(true);
+                let _ = w.show();
+                // NO set_focus() — keep focus on game window
+                let pos = crate::commands::wheel_pos_payload(&w);
+                let _ = w.emit("show-radial", pos);
+            }
+        });
+        return;
+    }
+
     // Sync current index from the actual foreground window before cycling,
     // so next/prev always starts from wherever focus currently is.
     let fg_id = platform::get_foreground_window_id();
@@ -163,8 +183,44 @@ unsafe extern "system" fn hotkey_callback(
         return CallNextHookEx(HHOOK::default(), ncode, wparam, lparam);
     }
 
-    // Only act on key-down events (also WM_SYSKEYDOWN for Alt+key combos)
     let msg_id = wparam.0 as u32;
+
+    // On keyup: if the radial is open and the released key matches the radial binding, hide directly
+    if msg_id == WM_KEYUP || msg_id == WM_SYSKEYUP {
+        let kb = &*(lparam.0 as *const KBDLLHOOKSTRUCT);
+        let vk = kb.vkCode as u16;
+        HOTKEY_CTX.with(|ctx| {
+            if let Some(ref c) = *ctx.borrow() {
+                use std::sync::atomic::Ordering;
+                if c.state.radial_open.load(Ordering::Relaxed) {
+                    let hotkeys = c.state.get_hotkeys();
+                    for binding in &hotkeys {
+                        if binding.action == "radial" && !binding.key.is_empty() {
+                            if let Some(expected) = js_code_to_vk(&binding.key) {
+                                if vk == expected {
+                                    c.state.radial_open.store(false, Ordering::Relaxed);
+                                    let h = c.handle.clone();
+                                    let state_ref = c.state.clone();
+                                    std::thread::spawn(move || {
+                                        if let Some(w) = h.get_webview_window("radial-overlay") {
+                                            let _ = w.hide();
+                                        }
+                                        if let Some(win) = state_ref.get_current_window() {
+                                            let wm = crate::platform::create_window_manager();
+                                            let _ = wm.focus_window(&win);
+                                        }
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        return CallNextHookEx(HHOOK::default(), ncode, wparam, lparam);
+    }
+
+    // Only act on key-down events (also WM_SYSKEYDOWN for Alt+key combos)
     if msg_id != WM_KEYDOWN && msg_id != WM_SYSKEYDOWN {
         return CallNextHookEx(HHOOK::default(), ncode, wparam, lparam);
     }

@@ -35,11 +35,21 @@ fn refresh_accounts(handle: &AppHandle, state: &Arc<AppState>) {
 }
 
 /// Updates current account from the actual foreground window and emits focus-changed if it changed.
+/// Skips the update while the radial overlay is open, and caches the last known foreground ID
+/// to avoid redundant lock acquisitions when the foreground hasn't changed.
 fn sync_focus_from_foreground(handle: &AppHandle, state: &Arc<AppState>) {
+    if state.radial_open.load(std::sync::atomic::Ordering::Relaxed) {
+        return;
+    }
     let fg_id = crate::platform::get_foreground_window_id();
     if fg_id == 0 {
         return;
     }
+    let last = state.last_foreground_id.load(std::sync::atomic::Ordering::Relaxed);
+    if fg_id == last {
+        return;
+    }
+    state.last_foreground_id.store(fg_id, std::sync::atomic::Ordering::Relaxed);
     let views = state.get_account_views();
     let Some(focused) = views.iter().find(|v| v.window_id == fg_id) else {
         return;
@@ -122,8 +132,7 @@ fn focus_character_with_fallback(
             if auto_accept {
                 std::thread::sleep(std::time::Duration::from_millis(300));
                 info!("[Autoswitch] Auto-accept: sending Enter for {}", name);
-                let wm_enter = platform::create_window_manager();
-                if let Err(e) = wm_enter.send_enter_key() {
+                if let Err(e) = wm_fallback.send_enter_key() {
                     error!("[Autoswitch] Auto-accept Enter failed: {}", e);
                 }
             }

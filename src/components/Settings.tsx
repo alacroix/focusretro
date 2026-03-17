@@ -280,9 +280,6 @@ function Settings({
       const code = e.code;
       if (!JS_KEY_TO_MAC_KEYCODE[code]) return;
 
-      const isFnOrSpecial = /^(F\d+|Tab|Space)$/.test(code);
-      if (!e.metaKey && !e.altKey && !e.shiftKey && !e.ctrlKey && !isFnOrSpecial) return;
-
       save(JS_KEY_TO_MAC_KEYCODE[code], e.metaKey, e.altKey, e.shiftKey, e.ctrlKey);
     };
 
@@ -312,6 +309,7 @@ function Settings({
     { action: "prev", label: t("hotkeys.prev") },
     { action: "next", label: t("hotkeys.next") },
     { action: "principal", label: t("hotkeys.principal") },
+    { action: "radial", label: t("hotkeys.radial") },
   ];
 
   return (

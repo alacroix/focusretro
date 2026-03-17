@@ -2,7 +2,7 @@ use crate::platform::GameWindow;
 use log::{error, info};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Mutex;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -43,6 +43,7 @@ pub struct AccountView {
     pub color: Option<String>,
     pub icon_path: Option<String>,
     pub is_principal: bool,
+    pub is_current: bool,
     pub position: usize,
 }
 
@@ -77,6 +78,14 @@ fn default_hotkeys() -> Vec<HotkeyBinding> {
         HotkeyBinding {
             action: "principal".into(),
             key: "F3".into(),
+            cmd: false,
+            alt: false,
+            shift: false,
+            ctrl: false,
+        },
+        HotkeyBinding {
+            action: "radial".into(),
+            key: "".into(),
             cmd: false,
             alt: false,
             shift: false,
@@ -194,6 +203,9 @@ pub struct AppState {
     pub pm_enabled: AtomicBool,
     pub auto_accept_enabled: AtomicBool,
     pub show_debug: AtomicBool,
+    pub radial_open: AtomicBool,
+    pub radial_center: Mutex<Option<(f64, f64)>>,
+    pub last_foreground_id: AtomicU64,
     pub profiles: Mutex<Vec<AccountProfile>>,
     pub accounts: Mutex<Vec<GameWindow>>,
     pub current_index: Mutex<usize>,
@@ -209,11 +221,18 @@ impl AppState {
     pub fn new() -> Self {
         let prefs = load_preferences();
         info!("[Prefs] Loaded {} profiles", prefs.profiles.len());
-        let hotkeys = if prefs.hotkeys.is_empty() {
+        // Start from loaded hotkeys, then add any default actions that are missing.
+        // This ensures new actions (e.g. "radial") appear on first launch after an upgrade.
+        let mut hotkeys = if prefs.hotkeys.is_empty() {
             default_hotkeys()
         } else {
             prefs.hotkeys
         };
+        for default_hk in default_hotkeys() {
+            if !hotkeys.iter().any(|h| h.action == default_hk.action) {
+                hotkeys.push(default_hk);
+            }
+        }
         Self {
             autoswitch_enabled: AtomicBool::new(prefs.autoswitch_enabled),
             group_invite_enabled: AtomicBool::new(prefs.group_invite_enabled),
@@ -221,6 +240,9 @@ impl AppState {
             pm_enabled: AtomicBool::new(prefs.pm_enabled),
             auto_accept_enabled: AtomicBool::new(prefs.auto_accept_enabled),
             show_debug: AtomicBool::new(prefs.show_debug),
+            radial_open: AtomicBool::new(false),
+            radial_center: Mutex::new(None),
+            last_foreground_id: AtomicU64::new(0),
             profiles: Mutex::new(prefs.profiles),
             accounts: Mutex::new(Vec::new()),
             current_index: Mutex::new(0),
@@ -234,10 +256,6 @@ impl AppState {
     }
 
     fn save(&self) {
-        let profiles = self.profiles.lock().unwrap();
-        let hotkeys = self.hotkeys.lock().unwrap();
-        let language = self.language.lock().unwrap();
-        let theme = self.theme.lock().unwrap();
         let prefs = Preferences {
             autoswitch_enabled: self.autoswitch_enabled.load(Ordering::Relaxed),
             group_invite_enabled: self.group_invite_enabled.load(Ordering::Relaxed),
@@ -245,16 +263,14 @@ impl AppState {
             pm_enabled: self.pm_enabled.load(Ordering::Relaxed),
             auto_accept_enabled: self.auto_accept_enabled.load(Ordering::Relaxed),
             show_debug: self.show_debug.load(Ordering::Relaxed),
-            profiles: profiles.clone(),
-            hotkeys: hotkeys.clone(),
-            language: language.clone(),
-            theme: theme.clone(),
+            profiles: self.profiles.lock().unwrap().clone(),
+            hotkeys: self.hotkeys.lock().unwrap().clone(),
+            language: self.language.lock().unwrap().clone(),
+            theme: self.theme.lock().unwrap().clone(),
         };
-        drop(profiles);
-        drop(hotkeys);
-        drop(language);
-        drop(theme);
-        save_preferences(&prefs);
+        std::thread::spawn(move || {
+            save_preferences(&prefs);
+        });
     }
 
     pub fn is_autoswitch_enabled(&self) -> bool {
@@ -323,6 +339,8 @@ impl AppState {
             hk.alt = alt;
             hk.shift = shift;
             hk.ctrl = ctrl;
+        } else {
+            hotkeys.push(HotkeyBinding { action: action.into(), key, cmd, alt, shift, ctrl });
         }
         drop(hotkeys);
         self.save();
@@ -392,6 +410,7 @@ impl AppState {
     pub fn get_account_views(&self) -> Vec<AccountView> {
         let profiles = self.profiles.lock().unwrap();
         let accounts = self.accounts.lock().unwrap();
+        let current_idx = *self.current_index.lock().unwrap();
 
         accounts
             .iter()
@@ -408,6 +427,7 @@ impl AppState {
                     color: profile.and_then(|p| p.color.clone()),
                     icon_path: profile.and_then(|p| p.icon_path.clone()),
                     is_principal: profile.is_some_and(|p| p.is_principal),
+                    is_current: i == current_idx,
                     position: i,
                 }
             })
@@ -516,7 +536,11 @@ impl AppState {
     }
 
     pub fn add_message(&self, msg: StoredMessage) {
-        self.messages.lock().unwrap().push(msg);
+        let mut messages = self.messages.lock().unwrap();
+        messages.push(msg);
+        if messages.len() > 500 {
+            messages.drain(0..100);
+        }
     }
 
     pub fn get_messages(&self) -> Vec<StoredMessage> {
@@ -532,6 +556,23 @@ impl AppState {
         if let Some(idx) = accounts.iter().position(|w| w.character_name.eq_ignore_ascii_case(name)) {
             *self.current_index.lock().unwrap() = idx;
         }
+    }
+
+    pub fn get_current_window(&self) -> Option<GameWindow> {
+        let accounts = self.accounts.lock().unwrap();
+        if accounts.is_empty() {
+            return None;
+        }
+        let idx = *self.current_index.lock().unwrap();
+        accounts.get(idx).cloned()
+    }
+
+    pub fn set_radial_center(&self, x: f64, y: f64) {
+        *self.radial_center.lock().unwrap() = Some((x, y));
+    }
+
+    pub fn get_radial_center(&self) -> Option<(f64, f64)> {
+        *self.radial_center.lock().unwrap()
     }
 
     pub fn sync_current_from_window_id(&self, window_id: u64) {

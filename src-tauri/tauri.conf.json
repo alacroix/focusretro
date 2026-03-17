@@ -11,7 +11,7 @@
     "removeUnusedCommands": true
   },
   "app": {
-    "withGlobalTauri": false,
+    "macOSPrivateApi": true,
     "windows": [
       {
         "title": "Focus Retro",
@@ -21,6 +21,20 @@
         "fullscreen": false,
         "center": true,
         "decorations": true,
+        "dragDropEnabled": false
+      },
+      {
+        "label": "radial-overlay",
+        "title": "FocusRetro Radial",
+        "url": "radial.html",
+        "transparent": true,
+        "decorations": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "visible": false,
+        "width": 350,
+        "height": 350,
+        "center": true,
         "dragDropEnabled": false
       }
     ],
