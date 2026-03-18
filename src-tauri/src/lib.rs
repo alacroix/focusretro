@@ -25,6 +25,13 @@ pub fn run() {
 
     builder
         .manage(app_state)
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { .. } = event {
+                if window.label() == "main" {
+                    window.app_handle().exit(0);
+                }
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             commands::list_accounts,
             commands::toggle_autoswitch,
