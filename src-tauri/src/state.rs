@@ -95,29 +95,16 @@ fn default_hotkeys() -> Vec<HotkeyBinding> {
 }
 
 fn detect_system_language() -> String {
-    #[cfg(target_os = "macos")]
-    {
-        if let Ok(output) = std::process::Command::new("defaults")
-            .args(["read", "-g", "AppleLanguages"])
-            .output()
-        {
-            let text = String::from_utf8_lossy(&output.stdout);
-            for lang in ["fr", "es", "en"] {
-                if text.contains(lang) {
-                    return lang.into();
-                }
-            }
+    let locale = sys_locale::get_locale().unwrap_or_default();
+    log::debug!("[lang] sys_locale detected: {:?}", locale);
+    let lower = locale.to_lowercase();
+    for lang in ["fr", "es"] {
+        if lower.starts_with(lang) {
+            log::debug!("[lang] resolved to: {lang}");
+            return lang.into();
         }
     }
-    if let Ok(lang) = std::env::var("LANG") {
-        let lower = lang.to_lowercase();
-        if lower.starts_with("fr") {
-            return "fr".into();
-        }
-        if lower.starts_with("es") {
-            return "es".into();
-        }
-    }
+    log::debug!("[lang] resolved to: en (fallback)");
     "en".into()
 }
 
