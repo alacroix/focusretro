@@ -164,6 +164,24 @@ Windows binaries are currently unsigned. SmartScreen will warn on first install 
 
 TODO: set up signing via [Azure Artifact Signing](https://learn.microsoft.com/en-us/azure/trusted-signing/) (~$10/month, requires registered organization) or [SignPath Foundation](https://signpath.org/) (free for OSS). See `.github/workflows/release.yml` and `src-tauri/tauri.conf.json` — the `signCommand` config is already in place, just needs credentials.
 
+## Security
+
+Only download FocusRetro from the official repository: **[github.com/alacroix/focusretro](https://github.com/alacroix/focusretro/releases/latest)**.
+Third-party sites have been known to redistribute modified Dofus community tools containing malware.
+
+Every release asset is attested by GitHub Actions. You can verify a binary before running it:
+
+```bash
+gh attestation verify <file> --repo alacroix/focusretro
+```
+
+Example:
+```bash
+gh attestation verify Focus.Retro_0.3.0_aarch64.dmg --repo alacroix/focusretro
+```
+
+A valid attestation confirms the file was built automatically from source — no human intervention.
+
 ## Disclaimer
 
 FocusRetro is an open-source utility for players of Dofus Retro.
