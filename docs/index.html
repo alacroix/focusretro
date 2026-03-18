@@ -723,9 +723,14 @@
 
         <li class="flex gap-4">
           <span class="flex-shrink-0 w-8 h-8 bg-brand-600 text-white rounded-full flex items-center justify-center font-bold text-sm">3</span>
-          <div>
-            <p class="font-semibold text-gray-900 dark:text-gray-100" data-i18n="install.mac.s3.title">macOS bloque l'application ?</p>
-            <p class="text-sm text-gray-600 dark:text-gray-400 mt-1" data-i18n="install.mac.s3.desc">Faites un clic droit sur Focus Retro → « Ouvrir » → cliquez à nouveau sur « Ouvrir ». C'est normal pour les apps non signées.</p>
+          <div class="flex-1">
+            <p class="font-semibold text-gray-900 dark:text-gray-100" data-i18n="install.mac.s3.title">Vous voyez « L'élément "Focus Retro.app" ne peut pas être ouvert » ?</p>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mt-1" data-i18n="install.mac.s3.desc">La signature de l'app n'est pas encore en place (ça coûte un petit billet) - c'est pour ça que macOS bloque l'app au premier lancement.<br>En attendant, allez dans <strong>Réglages Système → Confidentialité et sécurité</strong>, faites défiler jusqu'en bas et cliquez sur <strong>« Ouvrir quand même »</strong>.</p>
+            <img src="screenshots/mac-openanyway.webp"
+                 alt="Réglages Système - Ouvrir quand même"
+                 class="mt-3 rounded-xl border border-gray-200 dark:border-gray-700 max-w-sm w-full shadow-sm mx-auto block"
+                 loading="lazy"
+                 onerror="this.style.display='none';" />
           </div>
         </li>
 
@@ -806,7 +811,7 @@
           <span class="flex-shrink-0 w-8 h-8 bg-gray-800 text-white rounded-full flex items-center justify-center font-bold text-sm">2</span>
           <div>
             <p class="font-semibold text-gray-900 dark:text-gray-100" data-i18n="install.win.s2.title">Windows SmartScreen vous avertit ?</p>
-            <p class="text-sm text-gray-600 dark:text-gray-400 mt-1" data-i18n="install.win.s2.desc">C'est normal pour les apps sans signature. Cliquez sur « Informations complémentaires » puis sur « Exécuter quand même ».</p>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mt-1" data-i18n="install.win.s2.desc">La signature de l'app n'est pas encore en place (ça coûte un petit billet) - c'est pour ça que Windows SmartScreen affiche cet avertissement.<br>Cliquez sur « Informations complémentaires » puis sur « Exécuter quand même ».</p>
           </div>
         </li>
 
@@ -999,8 +1004,8 @@
       "install.mac.s1.desc": "Double-cliquez sur le fichier téléchargé pour monter le disque.",
       "install.mac.s2.title": "Glissez Focus Retro dans Applications",
       "install.mac.s2.desc": "Faites glisser l'icône Focus Retro vers le dossier Applications dans la fenêtre du dmg.",
-      "install.mac.s3.title": "macOS bloque l'application ?",
-      "install.mac.s3.desc": "Faites un clic droit sur Focus Retro → « Ouvrir » → cliquez à nouveau sur « Ouvrir ». C'est normal pour les apps non signées.",
+      "install.mac.s3.title": "Vous voyez « L'élément \"Focus Retro.app\" ne peut pas être ouvert » ?",
+      "install.mac.s3.desc": "La signature de l'app n'est pas encore en place (ça coûte un petit billet) - c'est pour ça que macOS bloque l'app au premier lancement.<br>En attendant, allez dans <strong>Réglages Système → Confidentialité et sécurité</strong>, faites défiler jusqu'en bas et cliquez sur <strong>« Ouvrir quand même »</strong>.",
       "install.mac.s4.title": "Accordez la permission Accessibilité",
       "install.mac.s4.desc": "Au premier lancement, une fenêtre vous demande la permission. Allez dans Réglages Système → Confidentialité et sécurité → Accessibilité → activez Focus Retro.",
       "install.mac.s5.title": "C'est prêt !",
@@ -1010,7 +1015,7 @@
       "install.win.s1.title": "Lancez l'installeur",
       "install.win.s1.desc": "Double-cliquez sur le fichier .exe téléchargé.",
       "install.win.s2.title": "Windows SmartScreen vous avertit ?",
-      "install.win.s2.desc": "C'est normal pour les apps sans signature. Cliquez sur « Informations complémentaires » puis sur « Exécuter quand même ».",
+      "install.win.s2.desc": "La signature de l'app n'est pas encore en place (ça coûte un petit billet) - c'est pour ça que Windows SmartScreen affiche cet avertissement.<br>Cliquez sur « Informations complémentaires » puis sur « Exécuter quand même ».",
       "install.win.s4.title": "C'est prêt !",
       "install.win.s4.desc": "Focus Retro apparaît dans la barre des tâches. Lancez Dofus Retro et jouez normalement.",
       "install.githubLink": "Je préfère télécharger depuis GitHub directement",
@@ -1100,8 +1105,8 @@
       "install.mac.s1.desc": "Double-click the downloaded file to mount the disk.",
       "install.mac.s2.title": "Drag Focus Retro to Applications",
       "install.mac.s2.desc": "Drag the Focus Retro icon to the Applications folder in the dmg window.",
-      "install.mac.s3.title": "macOS blocking the app?",
-      "install.mac.s3.desc": "Right-click Focus Retro → \"Open\" → click \"Open\" again. This is normal for unsigned apps.",
+      "install.mac.s3.title": "Seeing \"Focus Retro.app can't be opened\"?",
+      "install.mac.s3.desc": "App signing isn't in place yet (it costs a bit) - that's why macOS blocks the app on first launch.<br>In the meantime, go to <strong>System Settings → Privacy & Security</strong>, scroll to the bottom and click <strong>\"Open Anyway\"</strong>.",
       "install.mac.s4.title": "Grant Accessibility permission",
       "install.mac.s4.desc": "On first launch, a window asks for permission. Go to System Settings → Privacy & Security → Accessibility → enable Focus Retro.",
       "install.mac.s5.title": "You're all set!",
@@ -1111,7 +1116,7 @@
       "install.win.s1.title": "Run the installer",
       "install.win.s1.desc": "Double-click the downloaded .exe file.",
       "install.win.s2.title": "Windows SmartScreen warning?",
-      "install.win.s2.desc": "This is normal for unsigned apps. Click \"More info\" then \"Run anyway\".",
+      "install.win.s2.desc": "App signing isn't in place yet (it costs a bit) - that's why Windows SmartScreen shows this warning.<br>Click \"More info\" then \"Run anyway\".",
       "install.win.s4.title": "You're all set!",
       "install.win.s4.desc": "Focus Retro appears in your system tray. Launch Dofus Retro and play normally.",
       "install.githubLink": "I prefer to download directly from GitHub",
@@ -1201,8 +1206,8 @@
       "install.mac.s1.desc": "Haz doble clic en el archivo descargado para montar el disco.",
       "install.mac.s2.title": "Arrastra Focus Retro a Aplicaciones",
       "install.mac.s2.desc": "Arrastra el icono de Focus Retro a la carpeta Aplicaciones en la ventana del dmg.",
-      "install.mac.s3.title": "¿macOS bloquea la aplicación?",
-      "install.mac.s3.desc": "Haz clic derecho en Focus Retro → «Abrir» → vuelve a hacer clic en «Abrir». Esto es normal para apps no firmadas.",
+      "install.mac.s3.title": "¿Ves «No se puede abrir \'Focus Retro.app\'»?",
+      "install.mac.s3.desc": "La firma de la app aún no está en marcha (cuesta un poco) - por eso macOS bloquea la app en el primer lanzamiento.<br>Mientras tanto, ve a <strong>Configuración del Sistema → Privacidad y seguridad</strong>, desplázate hasta abajo y haz clic en <strong>«Abrir de todas formas»</strong>.",
       "install.mac.s4.title": "Concede permiso de Accesibilidad",
       "install.mac.s4.desc": "En el primer inicio, una ventana pide permiso. Ve a Configuración del Sistema → Privacidad y seguridad → Accesibilidad → activa Focus Retro.",
       "install.mac.s5.title": "¡Todo listo!",
@@ -1212,7 +1217,7 @@
       "install.win.s1.title": "Ejecuta el instalador",
       "install.win.s1.desc": "Haz doble clic en el archivo .exe descargado.",
       "install.win.s2.title": "¿Advertencia de Windows SmartScreen?",
-      "install.win.s2.desc": "Es normal para apps sin firma. Haz clic en «Más información» y luego en «Ejecutar de todas formas».",
+      "install.win.s2.desc": "La firma de la app aún no está en marcha (cuesta un poco) - por eso Windows SmartScreen muestra esta advertencia.<br>Haz clic en «Más información» y luego en «Ejecutar de todas formas».",
       "install.win.s4.title": "¡Todo listo!",
       "install.win.s4.desc": "Focus Retro aparece en la bandeja del sistema. Inicia Dofus Retro y juega normalmente.",
       "install.githubLink": "Prefiero descargar directamente desde GitHub",
