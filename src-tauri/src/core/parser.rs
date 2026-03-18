@@ -39,32 +39,28 @@ pub enum GameEvent {
     PrivateMessage(PrivateMessage),
 }
 
-static RE_CEST_A: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"(?i)^C'est à (.+?) de jouer$").unwrap());
+static RE_TURN: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"(?i)^(?:C'est à (.+?) de jouer|(.+?) 's turn to play|le toca jugar a (.+?))$")
+        .unwrap()
+});
 
 static RE_GROUP_INVITE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?s)^(.+?) t'invite à rejoindre son groupe").unwrap()
+    // Group 1: FR/ES (name at start), Group 2: EN (name after "join")
+    Regex::new(r"(?si)^(?:(.+?) (?:t'invite à rejoindre son groupe|te invita a unirte a su grupo)|You are invited to join (.+?)'s group)").unwrap()
 });
 
 static RE_TRADE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?s)^(.+?) te propose de faire un échange").unwrap()
+    Regex::new(r"(?s)^(.+?) (?:te propose de faire un échange|offers a trade|te propone realizar un intercambio)").unwrap()
 });
 
 static RE_PM: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"(?s)^de (.+?) : (.+)$").unwrap());
+    LazyLock::new(|| Regex::new(r"(?s)^(?:desde|de|from) (.+?) : (.+)$").unwrap());
 
 static RE_HTML_LINK: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r#"<a\s[^>]*>([^<]*)</a>"#).unwrap());
 
 static RE_HTML_TAG: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"<[^>]+>").unwrap());
-
-const TURN_SUFFIXES: &[&str] = &[
-    " : Votre tour",
-    " : Your turn",
-    " : Votre tour !",
-    " : Your turn!",
-];
 
 static RE_DOFUS_TITLE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^(.+?) - Dofus Retro v[\d.]+$").unwrap());
@@ -79,40 +75,28 @@ pub fn clean_html(text: &str) -> String {
 
 pub fn parse_turn_notification(text: &str) -> Option<TurnNotification> {
     let text = text.trim();
-    if text.is_empty() {
-        return None;
+    if let Some(caps) = RE_TURN.captures(text) {
+        // Groups: 1=FR, 2=EN, 3=ES — exactly one will be non-empty
+        let name = [1, 2, 3]
+            .iter()
+            .filter_map(|&i| caps.get(i))
+            .map(|m| m.as_str().trim())
+            .find(|s| !s.is_empty())?;
+        return Some(TurnNotification { character_name: name.to_string() });
     }
-
-    if let Some(caps) = RE_CEST_A.captures(text) {
-        let name = caps[1].trim();
-        if !name.is_empty() {
-            return Some(TurnNotification {
-                character_name: name.to_string(),
-            });
-        }
-    }
-
-    for suffix in TURN_SUFFIXES {
-        if let Some(name) = text.strip_suffix(suffix) {
-            let name = name.trim();
-            if !name.is_empty() {
-                return Some(TurnNotification {
-                    character_name: name.to_string(),
-                });
-            }
-        }
-    }
-
     None
 }
 
 fn parse_group_invite(text: &str) -> Option<String> {
     let text = text.trim();
     if let Some(caps) = RE_GROUP_INVITE.captures(text) {
-        let inviter = caps[1].trim();
-        if !inviter.is_empty() {
-            return Some(inviter.to_string());
-        }
+        // Group 1: FR/ES name, Group 2: EN name
+        let name = [1, 2]
+            .iter()
+            .filter_map(|&i| caps.get(i))
+            .map(|m| m.as_str().trim())
+            .find(|s| !s.is_empty())?;
+        return Some(name.to_string());
     }
     None
 }
@@ -154,8 +138,9 @@ fn extract_character_from_title(text: &str) -> Option<String> {
 /// Parse all segments and return the first game event found.
 /// Priority: turn > group invite > trade > PM
 pub fn parse_game_event(segments: &[String]) -> Option<GameEvent> {
-    // 1. Turn notifications (most specific)
-    for segment in segments {
+    // 1. Turn notifications — iterate in reverse so the specific body segment is matched
+    //    before the earlier combined segment (which also ends with the turn suffix/pattern).
+    for segment in segments.iter().rev() {
         if let Some(turn) = parse_turn_notification(segment) {
             return Some(GameEvent::Turn(turn));
         }
@@ -241,20 +226,6 @@ mod tests {
         let result = parse_turn_notification("c'est à TestChar de jouer");
         assert!(result.is_some());
         assert_eq!(result.unwrap().character_name, "TestChar");
-    }
-
-    #[test]
-    fn test_parse_french_legacy() {
-        let result = parse_turn_notification("Craette : Votre tour");
-        assert!(result.is_some());
-        assert_eq!(result.unwrap().character_name, "Craette");
-    }
-
-    #[test]
-    fn test_parse_english_legacy() {
-        let result = parse_turn_notification("Craette : Your turn");
-        assert!(result.is_some());
-        assert_eq!(result.unwrap().character_name, "Craette");
     }
 
     #[test]
@@ -349,6 +320,134 @@ mod tests {
     #[test]
     fn test_clean_html_plain() {
         assert_eq!(clean_html("hello world"), "hello world");
+    }
+
+    #[test]
+    fn test_parse_english_turn_segments() {
+        // Regression: combined segment ends with " 's turn to play" too — must not extract the whole combined string as character name
+        let segments = vec![
+            "Notification Center".to_string(),
+            "Dofus Retro, Rave-ll - Dofus Retro v1.47.21, Rave-ll 's turn to play".to_string(),
+            "Rave-ll - Dofus Retro v1.47.21".to_string(),
+            "Rave-ll 's turn to play".to_string(),
+        ];
+        let result = parse_game_event(&segments);
+        assert!(matches!(result, Some(GameEvent::Turn(_))));
+        if let Some(GameEvent::Turn(t)) = result {
+            assert_eq!(t.character_name, "Rave-ll");
+        }
+    }
+
+    #[test]
+    fn test_parse_english_turn_new() {
+        let result = parse_turn_notification("Craette 's turn to play");
+        assert!(result.is_some());
+        assert_eq!(result.unwrap().character_name, "Craette");
+    }
+
+    #[test]
+    fn test_parse_spanish_turn() {
+        let result = parse_turn_notification("le toca jugar a Craette");
+        assert!(result.is_some());
+        assert_eq!(result.unwrap().character_name, "Craette");
+    }
+
+    #[test]
+    fn test_parse_english_group_invite() {
+        let segments = vec![
+            "Notification Center".to_string(),
+            "Dofus Retro, Kura-noire - Dofus Retro v1.47.20, You are invited to join Testy's group. Do you accept?".to_string(),
+            "Kura-noire - Dofus Retro v1.47.20".to_string(),
+            "You are invited to join Testy's group. Do you accept?".to_string(),
+        ];
+        let result = parse_game_event(&segments);
+        assert!(matches!(result, Some(GameEvent::GroupInvite(_))));
+        if let Some(GameEvent::GroupInvite(g)) = result {
+            assert_eq!(g.receiver_name, "Kura-noire");
+            assert_eq!(g.inviter_name, "Testy");
+        }
+    }
+
+    #[test]
+    fn test_parse_spanish_group_invite() {
+        let segments = vec![
+            "Notification Center".to_string(),
+            "Dofus Retro, Kura-noire - Dofus Retro v1.47.20, Testy te invita a unirte a su grupo. ¿Deseas aceptar?".to_string(),
+            "Kura-noire - Dofus Retro v1.47.20".to_string(),
+            "Testy te invita a unirte a su grupo. ¿Deseas aceptar?".to_string(),
+        ];
+        let result = parse_game_event(&segments);
+        assert!(matches!(result, Some(GameEvent::GroupInvite(_))));
+        if let Some(GameEvent::GroupInvite(g)) = result {
+            assert_eq!(g.receiver_name, "Kura-noire");
+            assert_eq!(g.inviter_name, "Testy");
+        }
+    }
+
+    #[test]
+    fn test_parse_english_trade() {
+        let segments = vec![
+            "Notification Center".to_string(),
+            "Dofus Retro, Kura-noire - Dofus Retro v1.47.20, Testy offers a trade. Do you accept?".to_string(),
+            "Kura-noire - Dofus Retro v1.47.20".to_string(),
+            "Testy offers a trade. Do you accept?".to_string(),
+        ];
+        let result = parse_game_event(&segments);
+        assert!(matches!(result, Some(GameEvent::Trade(_))));
+        if let Some(GameEvent::Trade(t)) = result {
+            assert_eq!(t.receiver_name, "Kura-noire");
+            assert_eq!(t.requester_name, "Testy");
+        }
+    }
+
+    #[test]
+    fn test_parse_spanish_trade() {
+        let segments = vec![
+            "Notification Center".to_string(),
+            "Dofus Retro, Kura-noire - Dofus Retro v1.47.20, Testy te propone realizar un intercambio. ¿Deseas aceptar?".to_string(),
+            "Kura-noire - Dofus Retro v1.47.20".to_string(),
+            "Testy te propone realizar un intercambio. ¿Deseas aceptar?".to_string(),
+        ];
+        let result = parse_game_event(&segments);
+        assert!(matches!(result, Some(GameEvent::Trade(_))));
+        if let Some(GameEvent::Trade(t)) = result {
+            assert_eq!(t.receiver_name, "Kura-noire");
+            assert_eq!(t.requester_name, "Testy");
+        }
+    }
+
+    #[test]
+    fn test_parse_spanish_pm() {
+        let segments = vec![
+            "Notification Center".to_string(),
+            "Dofus Retro, Kura-noire - Dofus Retro v1.47.20, desde Testy : hola".to_string(),
+            "Kura-noire - Dofus Retro v1.47.20".to_string(),
+            "desde Testy : hola".to_string(),
+        ];
+        let result = parse_game_event(&segments);
+        assert!(matches!(result, Some(GameEvent::PrivateMessage(_))));
+        if let Some(GameEvent::PrivateMessage(pm)) = result {
+            assert_eq!(pm.receiver_name, "Kura-noire");
+            assert_eq!(pm.sender_name, "Testy");
+            assert_eq!(pm.message, "hola");
+        }
+    }
+
+    #[test]
+    fn test_parse_english_pm() {
+        let segments = vec![
+            "Notification Center".to_string(),
+            "Dofus Retro, Kura-noire - Dofus Retro v1.47.20, from Testy : hello there".to_string(),
+            "Kura-noire - Dofus Retro v1.47.20".to_string(),
+            "from Testy : hello there".to_string(),
+        ];
+        let result = parse_game_event(&segments);
+        assert!(matches!(result, Some(GameEvent::PrivateMessage(_))));
+        if let Some(GameEvent::PrivateMessage(pm)) = result {
+            assert_eq!(pm.receiver_name, "Kura-noire");
+            assert_eq!(pm.sender_name, "Testy");
+            assert_eq!(pm.message, "hello there");
+        }
     }
 
     #[test]
