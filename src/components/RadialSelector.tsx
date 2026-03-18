@@ -42,7 +42,7 @@ export default function RadialSelector({ pos, hovered }: Props) {
   }, [pos]);
 
   const n = accounts.length;
-  if (!pos || n === 0) return null;
+  if (!pos || n < 2) return null;
 
   const accent     = "#d4721a";
   const discGrad1  = "rgba(68,56,38,0.80)";
