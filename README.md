@@ -177,7 +177,7 @@ gh attestation verify <file> --repo alacroix/focusretro
 
 Example:
 ```bash
-gh attestation verify Focus.Retro_0.3.0_aarch64.dmg --repo alacroix/focusretro
+gh attestation verify Focus.Retro_<version>_aarch64.dmg --repo alacroix/focusretro
 ```
 
 A valid attestation confirms the file was built automatically from source — no human intervention.
