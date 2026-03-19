@@ -91,5 +91,11 @@
   "update.install": "Instalar",
   "update.downloading": "Descargando actualización…",
   "update.ready": "Actualización lista — reinicia para aplicar",
-  "update.restart": "Reiniciar"
+  "update.restart": "Reiniciar",
+  "update.consent_title": "Verificación de actualizaciones",
+  "update.consent_body": "FocusRetro puede verificar las actualizaciones al iniciar a través de GitHub Releases. No se envían otros datos.",
+  "update.consent_yes": "Activar",
+  "update.consent_no": "No, gracias",
+  "settings.update_check": "Verificar actualizaciones",
+  "settings.update_check_desc": "Contacta GitHub Releases al inicio para detectar nuevas versiones."
 }

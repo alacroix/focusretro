@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { listen } from "@tauri-apps/api/event";
-import { check, type Update } from "@tauri-apps/plugin-updater";
+import type { Update } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 import AccountList from "./components/AccountList";
 import MessageList from "./components/MessageList";
@@ -18,6 +18,8 @@ import {
   getShowDebug,
   getTheme,
   setTheme,
+  getUpdateConsent,
+  setUpdateConsent,
 } from "./lib/commands";
 import i18n from "./i18n";
 
@@ -49,6 +51,8 @@ function App() {
   const [pendingUpdate, setPendingUpdate] = useState<Update | null>(null);
   const [updateStatus, setUpdateStatus] = useState<"idle" | "downloading" | "done">("idle");
   const [theme, setThemeState] = useState("system");
+  const [updateConsent, setUpdateConsentState] = useState<boolean | null | undefined>(undefined);
+  const [showConsentModal, setShowConsentModal] = useState(false);
 
   useEffect(() => {
     refreshAccounts().then(setAccounts);
@@ -69,7 +73,17 @@ function App() {
       setThemeState(t);
       applyThemeClass(t);
     });
-    check().then((u) => { if (u?.available) setPendingUpdate(u); }).catch(() => {});
+    if (import.meta.env.VITE_UPDATER !== "false") {
+      getUpdateConsent().then(async (consent) => {
+        setUpdateConsentState(consent ?? null);
+        if (consent === null || consent === undefined) {
+          setShowConsentModal(true);
+        } else if (consent === true) {
+          const { check } = await import("@tauri-apps/plugin-updater");
+          check().then((u) => { if (u?.available) setPendingUpdate(u); }).catch(() => {});
+        }
+      });
+    }
 
     const unlistenAccounts = listen<AccountView[]>("accounts-updated", (e) => {
       setAccounts(e.payload);
@@ -105,6 +119,15 @@ function App() {
     applyThemeClass(newTheme);
     setThemeState(newTheme);
     setTheme(newTheme).catch(() => {});
+  };
+
+  const handleUpdateConsentChange = async (consent: boolean) => {
+    setUpdateConsentState(consent);
+    setUpdateConsent(consent).catch(() => {});
+    if (import.meta.env.VITE_UPDATER !== "false" && consent) {
+      const { check } = await import("@tauri-apps/plugin-updater");
+      check().then((u) => { if (u?.available) setPendingUpdate(u); }).catch(() => {});
+    }
   };
 
   const visibleTabs = (["accounts", "messages", "settings", ...(showDebug ? ["debug"] : [])] as Tab[]);
@@ -162,6 +185,41 @@ function App() {
         inputMonitoring={hasInputMonitoring}
         onRecheck={handleRecheck}
       />
+    );
+  }
+
+  if (import.meta.env.VITE_UPDATER !== "false" && showConsentModal) {
+    return (
+      <div className="min-h-screen bg-white dark:bg-gray-950 flex items-center justify-center p-6">
+        <div className="max-w-sm w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-5 shadow-sm">
+          <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">
+            {t("update.consent_title")}
+          </h2>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-5">
+            {t("update.consent_body")}
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => {
+                handleUpdateConsentChange(true);
+                setShowConsentModal(false);
+              }}
+              className="flex-1 px-3 py-2 bg-brand-600 hover:bg-brand-500 text-white rounded-lg text-xs font-medium transition-colors"
+            >
+              {t("update.consent_yes")}
+            </button>
+            <button
+              onClick={() => {
+                handleUpdateConsentChange(false);
+                setShowConsentModal(false);
+              }}
+              className="flex-1 px-3 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg text-xs font-medium transition-colors"
+            >
+              {t("update.consent_no")}
+            </button>
+          </div>
+        </div>
+      </div>
     );
   }
 
@@ -256,7 +314,7 @@ function App() {
           </div>
         )}
         {tab === "messages" && <MessageList />}
-        {tab === "settings" && <Settings showDebug={showDebug} onToggleDebug={setShowDebug} theme={theme} onThemeChange={handleThemeChange} />}
+        {tab === "settings" && <Settings showDebug={showDebug} onToggleDebug={setShowDebug} theme={theme} onThemeChange={handleThemeChange} updateConsent={updateConsent} onUpdateConsentChange={handleUpdateConsentChange} />}
         {tab === "debug" && <DebugPanel />}
       </main>
     </div>

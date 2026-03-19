@@ -217,11 +217,15 @@ function Settings({
   onToggleDebug,
   theme,
   onThemeChange,
+  updateConsent,
+  onUpdateConsentChange,
 }: {
   showDebug: boolean;
   onToggleDebug: (v: boolean) => void;
   theme: string;
   onThemeChange: (t: string) => void;
+  updateConsent: boolean | null | undefined;
+  onUpdateConsentChange: (consent: boolean) => void;
 }) {
   const { t, i18n } = useTranslation();
   const [autoswitch, setAutoswitch] = useState(true);
@@ -356,6 +360,16 @@ function Settings({
           onLabel={t("settings.on")}
           offLabel={t("settings.off")}
         />
+        {import.meta.env.VITE_UPDATER !== "false" && (
+          <ToggleRow
+            label={t("settings.update_check")}
+            description={t("settings.update_check_desc")}
+            enabled={updateConsent === true}
+            onToggle={() => onUpdateConsentChange(!(updateConsent === true))}
+            onLabel={t("settings.on")}
+            offLabel={t("settings.off")}
+          />
+        )}
       </div>
 
       {unlocked && (
@@ -430,8 +444,17 @@ function Settings({
         ))}
       </div>
 
-      <p className="mt-6 text-center text-[11px] text-gray-400 dark:text-gray-600">
+      <p className="mt-6 text-center text-[11px] text-gray-400 dark:text-gray-600 flex items-center justify-center gap-1.5">
         FocusRetro v{version}
+        {import.meta.env.VITE_UPDATER === "false" && (
+          <>
+            <span>— offline build</span>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z" />
+              <line x1="2" y1="2" x2="22" y2="22" />
+            </svg>
+          </>
+        )}
       </p>
     </div>
   );

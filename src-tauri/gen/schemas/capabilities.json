@@ -1,1 +1,1 @@
-{"default":{"identifier":"default","description":"Default capabilities for FocusRetro","local":true,"windows":["main"],"permissions":["core:default","updater:default","process:default"]}}
+{"default":{"identifier":"default","description":"Default capabilities for FocusRetro","local":true,"windows":["main"],"permissions":["core:default","process:default"]},"updater":{"identifier":"updater","description":"Update check capability","local":true,"windows":["main"],"permissions":["updater:default"]}}

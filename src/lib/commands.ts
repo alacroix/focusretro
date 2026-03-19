@@ -229,3 +229,11 @@ export function showRadial(): Promise<void> {
 export function hideRadial(): Promise<void> {
   return invoke("hide_radial");
 }
+
+export function getUpdateConsent(): Promise<boolean | null> {
+  return invoke("get_update_consent");
+}
+
+export function setUpdateConsent(consent: boolean): Promise<void> {
+  return invoke("set_update_consent", { consent });
+}

@@ -1,0 +1,8 @@
+{
+  "plugins": {
+    "updater": null
+  },
+  "bundle": {
+    "createUpdaterArtifacts": false
+  }
+}

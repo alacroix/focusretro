@@ -16,9 +16,14 @@ pub fn run() {
 
     let app_state = Arc::new(AppState::new());
 
-    let builder = tauri::Builder::default()
-        .plugin(tauri_plugin_updater::Builder::new().build())
+    #[allow(unused_mut)]
+    let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_process::init());
+
+    #[cfg(feature = "auto-update")]
+    {
+        builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
+    }
 
     #[cfg(target_os = "macos")]
     let builder = builder.plugin(tauri_nspanel::init());
@@ -74,6 +79,8 @@ pub fn run() {
             commands::apply_layout,
             commands::show_radial,
             commands::hide_radial,
+            commands::get_update_consent,
+            commands::set_update_consent,
         ])
         .setup(|app| {
             setup_tray(app)?;

@@ -8,6 +8,8 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
+    "tauri:dev:offline": "VITE_UPDATER=false tauri dev --config src-tauri/offline.conf.json -- --no-default-features",
+    "tauri:build:offline": "VITE_UPDATER=false tauri build --config src-tauri/offline.conf.json -- --no-default-features",
     "build:landing": "tailwindcss -i docs/input.css -o docs/style.css --minify",
     "seo": "npx lighthouse https://alacroix.github.io/focusretro/ --only-categories=seo,performance,best-practices --output=html --output-path=./lighthouse-report.html --view"
   },

@@ -326,6 +326,16 @@ pub fn get_available_layouts() -> Vec<String> {
 }
 
 #[tauri::command]
+pub fn get_update_consent(state: tauri::State<'_, Arc<AppState>>) -> Option<bool> {
+    state.get_update_consent()
+}
+
+#[tauri::command]
+pub fn set_update_consent(state: tauri::State<'_, Arc<AppState>>, consent: bool) {
+    state.set_update_consent(consent);
+}
+
+#[tauri::command]
 pub fn apply_layout(layout: String, state: tauri::State<'_, Arc<AppState>>) -> Result<(), String> {
     let wm = platform::create_window_manager();
     let live = wm.list_dofus_windows();

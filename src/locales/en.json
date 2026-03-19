@@ -91,5 +91,11 @@
   "update.install": "Install",
   "update.downloading": "Downloading update…",
   "update.ready": "Update ready — restart to apply",
-  "update.restart": "Restart"
+  "update.restart": "Restart",
+  "update.consent_title": "Check for updates",
+  "update.consent_body": "FocusRetro can check for updates at startup via GitHub Releases. No other data is sent.",
+  "update.consent_yes": "Enable",
+  "update.consent_no": "No thanks",
+  "settings.update_check": "Check for updates",
+  "settings.update_check_desc": "Contacts GitHub Releases at startup to detect new versions."
 }

@@ -76,5 +76,48 @@ jobs:
         uses: actions/attest-build-provenance@v2
         with:
           subject-path: |
-            src-tauri/target/release/bundle/msi/*.msi
             src-tauri/target/release/bundle/nsis/*.exe
+
+      - name: Build offline variant
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          VITE_UPDATER: "false"
+        run: npx tauri build --config src-tauri/offline.conf.json ${{ matrix.args }} -- --no-default-features
+
+      - name: Rename and upload offline artifacts (macOS)
+        if: matrix.platform == 'macos-latest'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for dmg in src-tauri/target/**/release/bundle/dmg/*.dmg; do
+            offline="${dmg%.dmg}_offline.dmg"
+            mv "$dmg" "$offline"
+            gh release upload ${{ github.ref_name }} "$offline" --clobber
+          done
+
+      - name: Rename and upload offline artifacts (Windows)
+        if: matrix.platform == 'windows-latest'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          Get-ChildItem -Recurse -Filter "*.exe" src-tauri/target/release/bundle/nsis | ForEach-Object {
+            $offline = $_.FullName -replace '\.exe$', '_offline.exe'
+            Move-Item $_.FullName $offline
+            gh release upload ${{ github.ref_name }} $offline --clobber
+          }
+
+      - name: Attest offline macOS build provenance
+        if: matrix.platform == 'macos-latest'
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            src-tauri/target/**/release/bundle/dmg/*_offline.dmg
+
+      - name: Attest offline Windows build provenance
+        if: matrix.platform == 'windows-latest'
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            src-tauri/target/release/bundle/nsis/*_offline.exe

@@ -95,29 +95,16 @@ fn default_hotkeys() -> Vec<HotkeyBinding> {
 }
 
 fn detect_system_language() -> String {
-    #[cfg(target_os = "macos")]
-    {
-        if let Ok(output) = std::process::Command::new("defaults")
-            .args(["read", "-g", "AppleLanguages"])
-            .output()
-        {
-            let text = String::from_utf8_lossy(&output.stdout);
-            for lang in ["fr", "es", "en"] {
-                if text.contains(lang) {
-                    return lang.into();
-                }
-            }
+    let locale = sys_locale::get_locale().unwrap_or_default();
+    log::debug!("[lang] sys_locale detected: {:?}", locale);
+    let lower = locale.to_lowercase();
+    for lang in ["fr", "es"] {
+        if lower.starts_with(lang) {
+            log::debug!("[lang] resolved to: {lang}");
+            return lang.into();
         }
     }
-    if let Ok(lang) = std::env::var("LANG") {
-        let lower = lang.to_lowercase();
-        if lower.starts_with("fr") {
-            return "fr".into();
-        }
-        if lower.starts_with("es") {
-            return "es".into();
-        }
-    }
+    log::debug!("[lang] resolved to: en (fallback)");
     "en".into()
 }
 
@@ -138,6 +125,8 @@ pub struct Preferences {
     pub hotkeys: Vec<HotkeyBinding>,
     pub language: String,
     pub theme: String,
+    #[serde(default)]
+    pub update_check_consent: Option<bool>,
 }
 
 impl Default for Preferences {
@@ -153,6 +142,7 @@ impl Default for Preferences {
             hotkeys: default_hotkeys(),
             language: default_language(),
             theme: "system".into(),
+            update_check_consent: None,
         }
     }
 }
@@ -215,6 +205,7 @@ pub struct AppState {
     pub traces: Mutex<Vec<TraceEntry>>,
     pub notif_mode: Mutex<String>,
     pub theme: Mutex<String>,
+    pub update_check_consent: Mutex<Option<bool>>,
 }
 
 impl AppState {
@@ -252,6 +243,7 @@ impl AppState {
             traces: Mutex::new(Vec::new()),
             notif_mode: Mutex::new("unknown".into()),
             theme: Mutex::new(prefs.theme),
+            update_check_consent: Mutex::new(prefs.update_check_consent),
         }
     }
 
@@ -267,6 +259,7 @@ impl AppState {
             hotkeys: self.hotkeys.lock().unwrap().clone(),
             language: self.language.lock().unwrap().clone(),
             theme: self.theme.lock().unwrap().clone(),
+            update_check_consent: *self.update_check_consent.lock().unwrap(),
         };
         std::thread::spawn(move || {
             save_preferences(&prefs);
@@ -624,5 +617,14 @@ impl AppState {
 
     pub fn get_notif_mode(&self) -> String {
         self.notif_mode.lock().unwrap().clone()
+    }
+
+    pub fn get_update_consent(&self) -> Option<bool> {
+        *self.update_check_consent.lock().unwrap()
+    }
+
+    pub fn set_update_consent(&self, consent: bool) {
+        *self.update_check_consent.lock().unwrap() = Some(consent);
+        self.save();
     }
 }
