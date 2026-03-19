@@ -241,3 +241,11 @@ export function getUpdateConsent(): Promise<boolean | null> {
 export function setUpdateConsent(consent: boolean): Promise<void> {
   return invoke("set_update_consent", { consent });
 }
+
+export function getCloseTotray(): Promise<boolean> {
+  return invoke("get_close_to_tray");
+}
+
+export function setCloseTotray(value: boolean): Promise<void> {
+  return invoke("set_close_to_tray", { value });
+}

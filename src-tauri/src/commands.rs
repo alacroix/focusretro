@@ -342,6 +342,16 @@ pub fn set_update_consent(state: tauri::State<'_, Arc<AppState>>, consent: bool)
 }
 
 #[tauri::command]
+pub fn get_close_to_tray(state: tauri::State<'_, Arc<AppState>>) -> bool {
+    state.is_close_to_tray()
+}
+
+#[tauri::command]
+pub fn set_close_to_tray(value: bool, state: tauri::State<'_, Arc<AppState>>) {
+    state.set_close_to_tray(value);
+}
+
+#[tauri::command]
 pub fn apply_layout(layout: String, state: tauri::State<'_, Arc<AppState>>) -> Result<(), String> {
     let wm = platform::create_window_manager();
     let live = wm.list_dofus_windows();

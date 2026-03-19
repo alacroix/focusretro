@@ -98,5 +98,6 @@
   "update.consent_yes": "Activar",
   "update.consent_no": "No, gracias",
   "settings.update_check": "Verificar actualizaciones",
-  "settings.update_check_desc": "Contacta GitHub Releases al inicio para detectar nuevas versiones."
+  "settings.update_check_desc": "Contacta GitHub Releases al inicio para detectar nuevas versiones.",
+  "settings.close_to_tray": "Cerrar minimiza a la bandeja"
 }

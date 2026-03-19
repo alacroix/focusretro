@@ -28,9 +28,15 @@ pub fn run() {
 
     builder
         .on_window_event(|window, event| {
-            if let tauri::WindowEvent::CloseRequested { .. } = event {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 if window.label() == "main" {
-                    window.app_handle().exit(0);
+                    let state = window.app_handle().state::<Arc<AppState>>();
+                    if state.is_close_to_tray() {
+                        api.prevent_close();
+                        let _ = window.hide();
+                    } else {
+                        window.app_handle().exit(0);
+                    }
                 }
             }
         })
@@ -79,6 +85,8 @@ pub fn run() {
             commands::hide_radial,
             commands::get_update_consent,
             commands::set_update_consent,
+            commands::get_close_to_tray,
+            commands::set_close_to_tray,
         ])
         .setup(|app| {
             let config_path = app
@@ -100,8 +108,21 @@ pub fn run() {
 
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running FocusRetro");
+        .build(tauri::generate_context!())
+        .expect("error while building FocusRetro")
+        .run(|app_handle, event| {
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Reopen { has_visible_windows, .. } = event {
+                if !has_visible_windows {
+                    if let Some(window) = app_handle.get_webview_window("main") {
+                        let _ = window.show();
+                        let _ = window.set_focus();
+                    }
+                }
+            }
+            #[cfg(not(target_os = "macos"))]
+            let _ = (app_handle, event);
+        });
 }
 
 fn start_hotkey_listener(app: &tauri::App) {

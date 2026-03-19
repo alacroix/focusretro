@@ -20,6 +20,8 @@ import {
   getLanguage,
   setLanguage,
   resetHotkeys,
+  getCloseTotray,
+  setCloseTotray as setCloseTotrayCmd,
 } from "../lib/commands";
 
 function ToggleRow({
@@ -234,6 +236,7 @@ function Settings({
   const [trade, setTrade] = useState(true);
   const [pm, setPm] = useState(true);
   const [autoAccept, setAutoAccept] = useState(false);
+  const [closeTotray, setCloseTotray] = useState(true);
   const [hotkeys, setHotkeys] = useState<HotkeyBinding[]>([]);
   const [recordingAction, setRecordingAction] = useState<string | null>(null);
   const [language, setLang] = useState("en");
@@ -247,6 +250,7 @@ function Settings({
     getTradeState().then(setTrade);
     getPmState().then(setPm);
     getAutoAcceptState().then(setAutoAccept);
+    getCloseTotray().then(setCloseTotray);
     getHotkeys().then(setHotkeys);
     getLanguage().then(setLang);
     getVersion().then(setVersion);
@@ -406,10 +410,6 @@ function Settings({
 
       <div className="divide-y divide-gray-200 dark:divide-gray-800/50">
         <div className="flex items-center justify-between py-2">
-          <span className="text-xs font-medium text-gray-800 dark:text-gray-200">{t("settings.theme")}</span>
-          <ThemeSelector theme={theme} onChange={onThemeChange} />
-        </div>
-        <div className="flex items-center justify-between py-2">
           <span className="text-xs font-medium text-gray-800 dark:text-gray-200">{t("language.title")}</span>
           <select
             value={language}
@@ -421,6 +421,17 @@ function Settings({
             <option value="es">🇪🇸 {t("language.es")}</option>
           </select>
         </div>
+        <div className="flex items-center justify-between py-2">
+          <span className="text-xs font-medium text-gray-800 dark:text-gray-200">{t("settings.theme")}</span>
+          <ThemeSelector theme={theme} onChange={onThemeChange} />
+        </div>
+        <ToggleRow
+          label={t("settings.close_to_tray")}
+          enabled={closeTotray}
+          onToggle={async () => { const v = !closeTotray; setCloseTotray(v); await setCloseTotrayCmd(v).catch(() => setCloseTotray(!v)); }}
+          onLabel={t("settings.on")}
+          offLabel={t("settings.off")}
+        />
       </div>
 
       <div className="flex items-center justify-between mt-5 mb-2">

@@ -98,5 +98,6 @@
   "update.consent_yes": "Enable",
   "update.consent_no": "No thanks",
   "settings.update_check": "Check for updates",
-  "settings.update_check_desc": "Contacts GitHub Releases at startup to detect new versions."
+  "settings.update_check_desc": "Contacts GitHub Releases at startup to detect new versions.",
+  "settings.close_to_tray": "Close minimizes to tray"
 }

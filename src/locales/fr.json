@@ -98,5 +98,6 @@
   "update.consent_yes": "Activer",
   "update.consent_no": "Non merci",
   "settings.update_check": "Vérifier les mises à jour",
-  "settings.update_check_desc": "Contacte GitHub Releases au démarrage pour détecter les nouvelles versions."
+  "settings.update_check_desc": "Contacte GitHub Releases au démarrage pour détecter les nouvelles versions.",
+  "settings.close_to_tray": "Fermeture réduit dans la barre système"
 }

@@ -127,6 +127,12 @@ pub struct Preferences {
     pub theme: String,
     #[serde(default)]
     pub update_check_consent: Option<bool>,
+    #[serde(default = "default_close_to_tray")]
+    pub close_to_tray: bool,
+}
+
+fn default_close_to_tray() -> bool {
+    true
 }
 
 impl Default for Preferences {
@@ -143,6 +149,7 @@ impl Default for Preferences {
             language: default_language(),
             theme: "system".into(),
             update_check_consent: None,
+            close_to_tray: true,
         }
     }
 }
@@ -223,6 +230,7 @@ pub struct AppState {
     pub notif_mode: Mutex<String>,
     pub theme: Mutex<String>,
     pub update_check_consent: Mutex<Option<bool>>,
+    pub close_to_tray: AtomicBool,
 }
 
 impl AppState {
@@ -262,6 +270,7 @@ impl AppState {
             notif_mode: Mutex::new("unknown".into()),
             theme: Mutex::new(prefs.theme),
             update_check_consent: Mutex::new(prefs.update_check_consent),
+            close_to_tray: AtomicBool::new(prefs.close_to_tray),
         }
     }
 
@@ -279,6 +288,7 @@ impl AppState {
             language: self.language.lock().unwrap().clone(),
             theme: self.theme.lock().unwrap().clone(),
             update_check_consent: *self.update_check_consent.lock().unwrap(),
+            close_to_tray: self.close_to_tray.load(Ordering::Relaxed),
         };
         std::thread::spawn(move || {
             save_preferences(&path, &prefs);
@@ -649,6 +659,15 @@ impl AppState {
 
     pub fn set_update_consent(&self, consent: bool) {
         *self.update_check_consent.lock().unwrap() = Some(consent);
+        self.save();
+    }
+
+    pub fn is_close_to_tray(&self) -> bool {
+        self.close_to_tray.load(Ordering::Relaxed)
+    }
+
+    pub fn set_close_to_tray(&self, enabled: bool) {
+        self.close_to_tray.store(enabled, Ordering::Relaxed);
         self.save();
     }
 }
