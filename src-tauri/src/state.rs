@@ -147,16 +147,33 @@ impl Default for Preferences {
     }
 }
 
-fn prefs_path() -> PathBuf {
+pub fn migrate_config_if_needed(new_path: &std::path::Path) {
     let home = std::env::var("HOME")
         .or_else(|_| std::env::var("USERPROFILE"))
         .unwrap_or_else(|_| ".".into());
-    PathBuf::from(home).join(".focusretro").join("config.json")
+    let old_path = PathBuf::from(home).join(".focusretro").join("config.json");
+
+    if old_path.exists() && !new_path.exists() {
+        if let Some(parent) = new_path.parent() {
+            if let Err(e) = std::fs::create_dir_all(parent) {
+                log::error!("Config migration: failed to create destination dir {parent:?}: {e}");
+                return;
+            }
+        }
+        if let Err(e) = std::fs::copy(&old_path, new_path) {
+            log::error!("Config migration copy failed: {e}");
+        } else {
+            let _ = std::fs::remove_file(&old_path);
+            if let Some(old_dir) = old_path.parent() {
+                let _ = std::fs::remove_dir(old_dir);
+            }
+            log::info!("Migrated config from {old_path:?} to {new_path:?}");
+        }
+    }
 }
 
-fn load_preferences() -> Preferences {
-    let path = prefs_path();
-    match std::fs::read_to_string(&path) {
+fn load_preferences(path: &std::path::Path) -> Preferences {
+    match std::fs::read_to_string(path) {
         Ok(data) => serde_json::from_str(&data).unwrap_or_else(|e| {
             error!("[Prefs] Failed to parse {}: {}", path.display(), e);
             Preferences::default()
@@ -171,14 +188,13 @@ fn load_preferences() -> Preferences {
     }
 }
 
-fn save_preferences(prefs: &Preferences) {
-    let path = prefs_path();
+fn save_preferences(path: &std::path::Path, prefs: &Preferences) {
     if let Some(parent) = path.parent() {
         let _ = std::fs::create_dir_all(parent);
     }
     match serde_json::to_string_pretty(prefs) {
         Ok(data) => {
-            if let Err(e) = std::fs::write(&path, data) {
+            if let Err(e) = std::fs::write(path, data) {
                 error!("[Prefs] Failed to write {}: {}", path.display(), e);
             }
         }
@@ -187,6 +203,7 @@ fn save_preferences(prefs: &Preferences) {
 }
 
 pub struct AppState {
+    config_path: PathBuf,
     pub autoswitch_enabled: AtomicBool,
     pub group_invite_enabled: AtomicBool,
     pub trade_enabled: AtomicBool,
@@ -209,8 +226,8 @@ pub struct AppState {
 }
 
 impl AppState {
-    pub fn new() -> Self {
-        let prefs = load_preferences();
+    pub fn new(config_path: PathBuf) -> Self {
+        let prefs = load_preferences(&config_path);
         info!("[Prefs] Loaded {} profiles", prefs.profiles.len());
         // Start from loaded hotkeys, then add any default actions that are missing.
         // This ensures new actions (e.g. "radial") appear on first launch after an upgrade.
@@ -225,6 +242,7 @@ impl AppState {
             }
         }
         Self {
+            config_path,
             autoswitch_enabled: AtomicBool::new(prefs.autoswitch_enabled),
             group_invite_enabled: AtomicBool::new(prefs.group_invite_enabled),
             trade_enabled: AtomicBool::new(prefs.trade_enabled),
@@ -248,6 +266,7 @@ impl AppState {
     }
 
     fn save(&self) {
+        let path = self.config_path.clone();
         let prefs = Preferences {
             autoswitch_enabled: self.autoswitch_enabled.load(Ordering::Relaxed),
             group_invite_enabled: self.group_invite_enabled.load(Ordering::Relaxed),
@@ -262,7 +281,7 @@ impl AppState {
             update_check_consent: *self.update_check_consent.lock().unwrap(),
         };
         std::thread::spawn(move || {
-            save_preferences(&prefs);
+            save_preferences(&path, &prefs);
         });
     }
 
@@ -631,5 +650,63 @@ impl AppState {
     pub fn set_update_consent(&self, consent: bool) {
         *self.update_check_consent.lock().unwrap() = Some(consent);
         self.save();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::migrate_config_if_needed;
+    use std::fs;
+
+    #[test]
+    fn migrate_does_nothing_when_old_path_absent() {
+        let tmp = tempfile::tempdir().unwrap();
+        let new_path = tmp.path().join("new").join("config.json");
+        migrate_config_if_needed(&new_path);
+        assert!(!new_path.exists());
+    }
+
+    #[test]
+    fn migrate_copies_and_removes_old_file() {
+        let tmp = tempfile::tempdir().unwrap();
+        let old_dir = tmp.path().join(".focusretro");
+        fs::create_dir_all(&old_dir).unwrap();
+        let old_path = old_dir.join("config.json");
+        fs::write(&old_path, r#"{"autoswitch_enabled":false}"#).unwrap();
+
+        // Point HOME at the temp dir so migrate_config_if_needed finds the old file
+        std::env::set_var("HOME", tmp.path());
+
+        let new_path = tmp.path().join("AppSupport").join("config.json");
+        migrate_config_if_needed(&new_path);
+
+        assert!(new_path.exists(), "new config should exist after migration");
+        assert!(!old_path.exists(), "old config should be removed after migration");
+        assert!(!old_dir.exists(), "old dir should be removed if empty");
+        let contents = fs::read_to_string(&new_path).unwrap();
+        assert!(contents.contains("autoswitch_enabled"));
+    }
+
+    #[test]
+    fn migrate_skips_when_new_path_already_exists() {
+        let tmp = tempfile::tempdir().unwrap();
+        let old_dir = tmp.path().join(".focusretro");
+        fs::create_dir_all(&old_dir).unwrap();
+        let old_path = old_dir.join("config.json");
+        fs::write(&old_path, r#"{"autoswitch_enabled":false}"#).unwrap();
+
+        std::env::set_var("HOME", tmp.path());
+
+        let new_dir = tmp.path().join("AppSupport");
+        fs::create_dir_all(&new_dir).unwrap();
+        let new_path = new_dir.join("config.json");
+        fs::write(&new_path, r#"{"autoswitch_enabled":true}"#).unwrap();
+
+        migrate_config_if_needed(&new_path);
+
+        // old file untouched, new file unchanged
+        assert!(old_path.exists());
+        let contents = fs::read_to_string(&new_path).unwrap();
+        assert!(contents.contains("true"));
     }
 }

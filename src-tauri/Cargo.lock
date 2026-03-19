@@ -950,6 +950,7 @@ dependencies = [
  "tauri-nspanel",
  "tauri-plugin-process",
  "tauri-plugin-updater",
+ "tempfile",
  "tokio",
  "windows 0.58.0",
 ]

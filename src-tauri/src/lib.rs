@@ -14,8 +14,6 @@ pub fn run() {
     )
     .init();
 
-    let app_state = Arc::new(AppState::new());
-
     #[allow(unused_mut)]
     let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_process::init());
@@ -29,7 +27,6 @@ pub fn run() {
     let builder = builder.plugin(tauri_nspanel::init());
 
     builder
-        .manage(app_state)
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { .. } = event {
                 if window.label() == "main" {
@@ -84,6 +81,16 @@ pub fn run() {
             commands::set_update_consent,
         ])
         .setup(|app| {
+            let config_path = app
+                .path()
+                .app_config_dir()?
+                .join("config.json");
+
+            crate::state::migrate_config_if_needed(&config_path);
+
+            let app_state = Arc::new(AppState::new(config_path));
+            app.manage(app_state);
+
             setup_tray(app)?;
             start_hotkey_listener(app);
             core::autoswitch::setup(app)?;
