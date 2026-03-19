@@ -146,6 +146,17 @@ src/
 | macOS    | Supported |
 | Windows  | Supported |
 
+## Release variants
+
+Each release ships two variants per platform:
+
+| Variant | File suffix | Auto-updater |
+|---------|-------------|--------------|
+| Standard | _(none)_ | Yes — checks GitHub on launch |
+| Offline | `_offline` | No — zero outbound HTTP |
+
+The offline variant is built with `--no-default-features` (disables `tauri-plugin-updater`). It makes no network connections whatsoever. Both variants are attested by GitHub Actions.
+
 ## Code signing (macOS)
 
 macOS binaries are signed with an ad-hoc identity (`-`). They are **not notarized**, so Gatekeeper will block the app when downloaded from the internet. To run it:
