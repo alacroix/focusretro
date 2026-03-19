@@ -19,6 +19,7 @@ import {
   setHotkey,
   getLanguage,
   setLanguage,
+  resetHotkeys,
 } from "../lib/commands";
 
 function ToggleRow({
@@ -428,6 +429,19 @@ function Settings({
             pressKeyLabel={t("hotkeys.press_key")}
           />
         ))}
+      </div>
+      <div className="flex justify-end mt-2">
+        <button
+          onClick={() => {
+            resetHotkeys().then((newHotkeys) => {
+              setHotkeys(newHotkeys);
+              emit("hotkeys-updated", newHotkeys);
+            });
+          }}
+          className="text-[11px] px-2.5 py-1 rounded-md bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-500 dark:hover:bg-gray-700 transition-colors"
+        >
+          {t("hotkeys.reset")}
+        </button>
       </div>
 
       <p className="mt-6 text-center text-[11px] text-gray-400 dark:text-gray-600">

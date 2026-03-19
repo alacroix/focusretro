@@ -331,6 +331,11 @@ impl AppState {
         self.hotkeys.lock().unwrap().clone()
     }
 
+    pub fn reset_hotkeys(&self) {
+        *self.hotkeys.lock().unwrap() = default_hotkeys();
+        self.save();
+    }
+
     pub fn set_hotkey(&self, action: &str, key: String, cmd: bool, alt: bool, shift: bool, ctrl: bool) {
         let mut hotkeys = self.hotkeys.lock().unwrap();
         if let Some(hk) = hotkeys.iter_mut().find(|h| h.action == action) {

@@ -61,6 +61,7 @@ pub fn run() {
             commands::focus_principal,
             commands::get_hotkeys,
             commands::set_hotkey,
+            commands::reset_hotkeys,
             commands::get_language,
             commands::set_language,
             commands::get_traces,

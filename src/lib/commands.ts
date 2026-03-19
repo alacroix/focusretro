@@ -169,6 +169,10 @@ export function setHotkey(
   return invoke("set_hotkey", { action, key, cmd, alt, shift, ctrl });
 }
 
+export function resetHotkeys(): Promise<HotkeyBinding[]> {
+  return invoke("reset_hotkeys");
+}
+
 export function getLanguage(): Promise<string> {
   return invoke("get_language");
 }
