@@ -241,11 +241,9 @@ pub fn set_hotkey(
 }
 
 #[tauri::command]
-pub fn reset_hotkeys(app: tauri::AppHandle, state: tauri::State<'_, Arc<AppState>>) -> Vec<HotkeyBinding> {
+pub fn reset_hotkeys(state: tauri::State<'_, Arc<AppState>>) -> Vec<HotkeyBinding> {
     state.reset_hotkeys();
-    let new_hotkeys = state.get_hotkeys();
-    let _ = tauri::Emitter::emit(&app, "hotkeys-updated", &new_hotkeys);
-    new_hotkeys
+    state.get_hotkeys()
 }
 
 #[tauri::command]
