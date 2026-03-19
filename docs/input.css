@@ -1,6 +1,22 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@source "./index.html";
+
+/* darkMode: "class" equivalent in Tailwind v4 */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* brand colors */
+@theme {
+  --color-brand-50:  #FFF9E6;
+  --color-brand-100: #FFEFC2;
+  --color-brand-200: #FFE39A;
+  --color-brand-300: #FFD366;
+  --color-brand-400: #FFC338;
+  --color-brand-500: #F6A800;
+  --color-brand-600: #D18A00;
+  --color-brand-700: #A06100;
+  --color-brand-800: #6C3F00;
+  --color-brand-900: #3E2500;
+}
 
 @layer base {
   html { scroll-behavior: smooth; }
