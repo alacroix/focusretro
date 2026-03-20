@@ -58,9 +58,11 @@ export default function DebugPanel() {
               ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/60 dark:text-emerald-300 dark:border-emerald-700/50"
               : notifMode === "poll"
               ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/60 dark:text-amber-300 dark:border-amber-700/50"
+              : notifMode === "poll-db"
+              ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/60 dark:text-amber-300 dark:border-amber-700/50"
               : "bg-gray-100 text-gray-500 border-gray-200 dark:bg-gray-800 dark:text-gray-500 dark:border-gray-700"
           }`}>
-            {notifMode === "event" ? "event-driven" : notifMode === "poll" ? "polling 20ms" : notifMode}
+            {notifMode === "event" ? "event-driven" : notifMode === "poll" ? "polling 20ms" : notifMode === "poll-db" ? "polling DB 200ms" : notifMode}
           </span>
         </div>
         <button

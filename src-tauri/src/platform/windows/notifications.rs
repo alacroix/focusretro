@@ -1,7 +1,13 @@
 use crate::platform::NotificationListener;
 use log::{error, info, warn};
 use std::collections::HashSet;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, LazyLock, Mutex};
+
+use regex::Regex;
+
+static RE_TOAST_TEXT: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(?s)<text[^>]*>([^<]*)</text>").unwrap());
+
 use windows::Foundation::TypedEventHandler;
 use windows::UI::Notifications::Management::{
     UserNotificationListener, UserNotificationListenerAccessStatus,
@@ -106,10 +112,107 @@ fn process_notification(
         } else {
             format!("{} {}", title, body)
         };
+        // segments[0]: "Dofus Retro" is used as the source tag on Windows (both WinRT and DB paths).
+        // The parser never reads segments[0] — it iterates in reverse over segments[1..] — so this
+        // differs from the macOS convention ("Notification Center") without affecting behavior.
         let segments = vec!["Dofus Retro".to_string(), combined, title, body];
         (cb.0)(segments);
     } else {
         warn!("[WinNotif] Notification {} had no text, skipping callback", notif_id);
+    }
+}
+
+fn seed_last_id_from_db(db_path: &std::path::Path) -> u64 {
+    use rusqlite::{Connection, OpenFlags};
+    let conn = match Connection::open_with_flags(
+        db_path,
+        OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    ) {
+        Ok(c) => c,
+        Err(e) => {
+            warn!("[WinNotif] seed: cannot open DB: {:?}", e);
+            return 0;
+        }
+    };
+    let _ = conn.busy_timeout(std::time::Duration::from_millis(1000));
+    conn.query_row(
+        "SELECT COALESCE(MAX(Id), 0) FROM Notification",
+        [],
+        |row| row.get::<_, i64>(0),
+    )
+    .map(|v| v as u64)
+    .unwrap_or(0)
+}
+
+fn poll_db_notifications(
+    db_path: &std::path::Path,
+    last_id: &mut u64,
+    cb: &SyncCallback,
+) {
+    use rusqlite::{Connection, OpenFlags};
+    let conn = match Connection::open_with_flags(
+        db_path,
+        OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    ) {
+        Ok(c) => c,
+        Err(e) => {
+            warn!("[WinNotif] poll: cannot open DB: {:?}", e);
+            return;
+        }
+    };
+    let _ = conn.busy_timeout(std::time::Duration::from_millis(1000));
+
+    let mut stmt = match conn.prepare(
+        "SELECT Id, CAST(Payload AS TEXT) FROM Notification WHERE Id > ?1 ORDER BY Id ASC",
+    ) {
+        Ok(s) => s,
+        Err(e) => {
+            warn!("[WinNotif] poll: prepare failed: {:?}", e);
+            return;
+        }
+    };
+
+    let rows: Vec<(u64, String)> = match stmt.query_map([*last_id as i64], |row| {
+        Ok((row.get::<_, i64>(0)? as u64, row.get::<_, String>(1)?))
+    }) {
+        Ok(mapped) => mapped.filter_map(|r| r.ok()).collect(),
+        Err(e) => {
+            warn!("[WinNotif] poll: query failed: {:?}", e);
+            return;
+        }
+    };
+
+    for (id, payload) in rows {
+        let texts: Vec<String> = RE_TOAST_TEXT
+            .captures_iter(&payload)
+            .map(|cap| cap[1].trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+
+        if texts.is_empty() {
+            if id > *last_id {
+                *last_id = id;
+            }
+            continue;
+        }
+
+        let title = texts[0].clone();
+        let body = texts.get(1).cloned().unwrap_or_default();
+        let combined = if body.is_empty() {
+            title.clone()
+        } else {
+            format!("{} {}", title, body)
+        };
+
+        // segments[0]: "Dofus Retro" is used as the source tag on Windows (both WinRT and DB paths).
+        // The parser never reads segments[0] — it iterates in reverse over segments[1..] — so this
+        // differs from the macOS convention ("Notification Center") without affecting behavior.
+        let segments = vec!["Dofus Retro".to_string(), combined, title, body];
+        (cb.0)(segments);
+        // Advance last_id only after the callback has returned to avoid skipping rows on panic.
+        if id > *last_id {
+            *last_id = id;
+        }
     }
 }
 
@@ -155,9 +258,41 @@ impl NotificationListener for WinNotificationListener {
 
             if status != UserNotificationListenerAccessStatus::Allowed {
                 warn!(
-                    "[WinNotif] Notification access not granted (status: {:?})",
+                    "[WinNotif] Notification access not granted (status: {:?}), trying DB fallback",
                     status
                 );
+
+                let db_path = match std::env::var("LOCALAPPDATA") {
+                    Ok(p) => std::path::PathBuf::from(p)
+                        .join("Microsoft")
+                        .join("Windows")
+                        .join("Notifications")
+                        .join("wpndatabase.db"),
+                    Err(_) => {
+                        error!("[WinNotif] LOCALAPPDATA not set");
+                        return;
+                    }
+                };
+
+                on_mode("poll-db".into());
+                let mut last_id = seed_last_id_from_db(&db_path);
+                let poll_interval = std::time::Duration::from_millis(200);
+
+                loop {
+                    std::thread::sleep(poll_interval);
+                    poll_db_notifications(&db_path, &mut last_id, &callback);
+
+                    unsafe {
+                        use windows::Win32::UI::WindowsAndMessaging::{
+                            PM_REMOVE, PeekMessageW, MSG,
+                        };
+                        let mut msg = MSG::default();
+                        if PeekMessageW(&mut msg, None, WM_QUIT, WM_QUIT, PM_REMOVE).as_bool() {
+                            break;
+                        }
+                    }
+                }
+                info!("[WinNotif] DB poll thread exiting");
                 return;
             }
 
