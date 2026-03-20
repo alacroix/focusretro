@@ -9,7 +9,7 @@ A lightweight desktop app that auto-focuses Dofus Retro game windows when it's y
 ## How it works
 
 1. Dofus Retro sends a system notification when a game event occurs (turn start, group invite, trade request, private message)
-2. FocusRetro intercepts the notification banner via macOS Accessibility APIs
+2. FocusRetro intercepts the notification banner via OS APIs (Accessibility on macOS, WinRT/notification database on Windows)
 3. The character name is extracted and matched to the corresponding game window
 4. The game window is brought to the foreground automatically
 
@@ -20,7 +20,6 @@ No game client modification is needed.
 - **Auto-focus on turn**: Switches to the correct game window when your turn starts
 - **Group invite handling**: Focuses the recipient's window when one of your characters sends a group invite (restricted to known accounts)
 - **Trade request handling**: Focuses the recipient's window when one of your characters sends a trade request (restricted to known accounts)
-- **Auto-accept**: Optionally simulates pressing Enter to accept group invites and trades (off by default)
 - **Private messages**: Captures incoming PMs and displays them in a dedicated Messages tab with HTML item links cleaned up
 - **Account detection**: Detects all open Dofus Retro windows by parsing window titles
 - **Account management**: Reorder accounts via drag & drop, assign icons and colors, designate a principal account
@@ -33,8 +32,8 @@ No game client modification is needed.
 - **Hotkeys work everywhere**: Uses low-level event hooks (`CGEventTap` on macOS, `WH_KEYBOARD_LL` on Windows) so hotkeys fire even when Dofus (Wine) has focus
 - **System tray**: Dynamic icon (active/paused), shows principal account name, account count, toggle autoswitch, show/hide window, quit
 - **Translations**: English, French, Spanish — auto-detects system language on first launch
-- **Persistent settings**: All preferences (toggles, hotkeys, language, account profiles/order) saved to `~/.focusretro/config.json`
-- **Independent toggles**: Each feature (autoswitch, group invite, trade, PM, auto-accept) can be enabled/disabled independently
+- **Persistent settings**: All preferences (toggles, hotkeys, language, account profiles/order) saved to `~/Library/Application Support/com.focusretro.desktop/config.json` (macOS) or `%APPDATA%\com.focusretro.desktop\config.json` (Windows)
+- **Independent toggles**: Each feature (autoswitch, group invite, trade, PM) can be enabled/disabled independently
 
 ## Requirements
 
@@ -47,7 +46,8 @@ No game client modification is needed.
 ### Windows
 
 - Windows 10 1903+ or Windows 11
-- **Notification access** must be granted when prompted on first launch
+- **Windows 11 / Windows 10 with notification access granted**: uses WinRT `UserNotificationListener` (event-driven + poll backup). You will be prompted on first launch.
+- **Windows 10 fallback**: if `UserNotificationListener` access is not available or not granted, FocusRetro automatically falls back to polling the Windows notification database (`wpndatabase.db`) directly — no permission required.
 
 ### Build tools
 
@@ -82,7 +82,7 @@ FocusRetro requires **Accessibility** permission. This is used to:
 
 1. **Read notification banners** — An `AXObserver` watches the NotificationCenter process for new notification windows and reads their text content
 2. **Focus game windows** — `AXUIElement` APIs raise specific Dofus Retro windows
-3. **Simulate keypresses** — `CGEvent` APIs handle auto-accept (Enter key) and global hotkey interception
+3. **Simulate keypresses** — `CGEvent` APIs simulate key events (e.g. Enter key for hotkey actions)
 4. **Global hotkeys** — A `CGEventTap` listens for keyboard events system-wide so hotkeys work even when another app is focused
 
 When you first launch, you'll be prompted to grant Accessibility permission. If not, go to:
@@ -91,7 +91,17 @@ When you first launch, you'll be prompted to grant Accessibility permission. If 
 
 ### Windows
 
-FocusRetro requires **Notification access** to read toast notifications from Dofus Retro. You will be prompted on first launch via the `UserNotificationListener` API. No other special permissions are needed — window focus and key simulation use standard Win32 APIs.
+FocusRetro reads toast notifications from Dofus Retro using one of three modes, selected automatically at runtime:
+
+| Mode | When | How |
+|------|------|-----|
+| `event` | Win11 / Win10 with access granted | WinRT `UserNotificationListener` event-driven + 200ms poll backup |
+| `poll` | Access granted, events unavailable (unpackaged app) | WinRT `GetNotificationsAsync` polled every 100ms |
+| `poll-db` | Win10, access not granted | Polls `%LOCALAPPDATA%\Microsoft\Windows\Notifications\wpndatabase.db` (SQLite) every 200ms — no permission required |
+
+On first launch on Windows 11 (or Windows 10 with a compatible build), you will be prompted to grant notification access. If you decline or the API is unavailable (Windows 10), the DB fallback kicks in automatically.
+
+No other special permissions are needed — window focus and key simulation use standard Win32 APIs.
 
 ## Architecture
 
@@ -115,7 +125,7 @@ src-tauri/src/
     └── windows/
     │   ├── hotkeys.rs      # WH_KEYBOARD_LL global hotkey listener
     │   ├── window.rs       # EnumWindows + HWND-direct focus (AttachThreadInput/SetActiveWindow) + SendInput
-    │   └── notifications.rs # WinRT UserNotificationListener
+    │   └── notifications.rs # WinRT UserNotificationListener (event/poll) + wpndatabase.db poll fallback (Win10)
 
 src/
 ├── i18n.ts                 # i18next initialization (en/fr/es)
