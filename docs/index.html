@@ -54,7 +54,12 @@
       {
         "@type": "Question",
         "name": "Est-ce qu'il collecte mes données ?",
-        "acceptedAnswer": { "@type": "Answer", "text": "Non. Focus Retro tourne entièrement en local sur votre machine. Aucune donnée n'est envoyée nulle part." }
+        "acceptedAnswer": { "@type": "Answer", "text": "Non. Focus Retro ne collecte, n'envoie et ne stocke aucune donnée personnelle. Tout reste sur votre machine. La seule connexion réseau est la vérification de mise à jour au lancement, qui interroge uniquement GitHub Releases pour comparer les numéros de version. Aucune information sur vous ou votre usage n'est transmise. Le code source complet est disponible sur GitHub - vous pouvez l'auditer, le compiler vous-même et vérifier chaque ligne. Si vous souhaitez zéro connexion réseau, une version offline est disponible." }
+      },
+      {
+        "@type": "Question",
+        "name": "Quelle différence entre la version standard et la version offline ?",
+        "acceptedAnswer": { "@type": "Answer", "text": "La version standard effectue une seule connexion réseau au démarrage - uniquement pour vérifier si une nouvelle version est disponible. Vous pouvez désactiver cette vérification dans les paramètres, mais le code de mise à jour reste présent dans l'application. La version offline va plus loin : le code de mise à jour n'est pas compilé dedans. Aucune connexion réseau n'est possible, même accidentellement. En contrepartie, vous devrez surveiller les releases GitHub et mettre à jour manuellement." }
       },
       {
         "@type": "Question",
@@ -65,6 +70,11 @@
         "@type": "Question",
         "name": "Ça apporte quoi de plus qu'Organizer ?",
         "acceptedAnswer": { "@type": "Answer", "text": "Focus Retro fait tout ce que fait Organizer - détecter vos fenêtres Dofus et basculer entre elles avec des raccourcis clavier - et y ajoute l'automatisme en combat : la bonne fenêtre vient toute seule quand c'est votre tour, sur invitation de groupe ou demande d'échange. C'est un remplacement complet, pas un outil en plus. Et il tourne sur macOS." }
+      },
+      {
+        "@type": "Question",
+        "name": "J'ai un problème, où demander de l'aide ?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Rejoignez le serveur Discord - c'est l'endroit le plus rapide pour obtenir de l'aide. discord.gg/zyAur7wzvc" }
       },
       {
         "@type": "Question",
@@ -145,7 +155,7 @@
       text-overflow: ellipsis;
     }
 
-    /* Windows-style controls: — □ ✕ */
+    /* Windows-style controls: -□ ✕ */
     .fr-win-controls {
       display: flex;
       height: 100%;
@@ -217,6 +227,161 @@
       .fr-win-3 { animation: none; transform: translate(-14px,78px)   scale(0.492,0.489); opacity:1; }
       .fr-win-4 { animation: none; transform: translate(104px,74px)   scale(0.492,0.489); opacity:1; }
     }
+
+    /* === Tooltip === */
+    .tooltip-wrap { position: relative; display: inline-flex; align-items: center; }
+    .tooltip-wrap .tooltip {
+      position: absolute;
+      bottom: calc(100% + 6px);
+      left: 50%;
+      transform: translateX(-50%);
+      width: 220px;
+      background: #111827;
+      color: #f3f4f6;
+      font-size: 0.7rem;
+      line-height: 1.5;
+      padding: 0.45rem 0.65rem;
+      border-radius: 0.5rem;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s;
+      text-align: left;
+      white-space: normal;
+      z-index: 50;
+    }
+    .tooltip-wrap:hover .tooltip,
+    .tooltip-wrap:focus-within .tooltip { opacity: 1; }
+
+    /* === Variant toggle (Standard / Offline) === */
+    .variant-btn {
+      background: #fff;
+      color: #374151;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+    .dark .variant-btn {
+      background: #1f2937;
+      color: #d1d5db;
+      border-color: #4b5563;
+    }
+    .variant-btn:hover:not(.active) {
+      background: #f9fafb;
+    }
+    .dark .variant-btn:hover:not(.active) {
+      background: #374151;
+    }
+    .variant-btn.active {
+      background: #D18A00;
+      color: #fff;
+      border-color: #D18A00;
+    }
+    .variant-btn:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 2px #fff, 0 0 0 4px #F6A800;
+    }
+
+    /* === Anchor scroll offset (sticky navbar) === */
+    :target { scroll-margin-top: 64px; }
+
+    /* === Variant selection cards (Standard / Offline) === */
+    .fr-variant-card {
+      padding: 1.25rem 1.25rem;
+      border-radius: 0.75rem;
+      border: 2px solid #e5e7eb;
+      background: #fff;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      text-align: left;
+      width: 100%;
+    }
+    .fr-variant-card:hover:not(.active) {
+      border-color: #ffc338;
+      background: #fffbf0;
+    }
+    .fr-variant-card.active {
+      border-color: #d18a00;
+      background: #fff9e6;
+    }
+    .dark .fr-variant-card {
+      background: #1f2937;
+      border-color: #374151;
+    }
+    .dark .fr-variant-card:hover:not(.active) {
+      border-color: #ffc338;
+      background: rgba(62, 37, 0, 0.25);
+    }
+    .dark .fr-variant-card.active {
+      border-color: #f6a800;
+      background: rgba(62, 37, 0, 0.35);
+    }
+    .fr-variant-card-title {
+      font-weight: 700;
+      font-size: 1rem;
+      color: #111827;
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+    }
+    .dark .fr-variant-card-title { color: #f3f4f6; }
+    .fr-variant-card.active .fr-variant-card-title { color: #a06100; }
+    .dark .fr-variant-card.active .fr-variant-card-title { color: #ffd366; }
+    .fr-variant-card-desc {
+      font-size: 0.8125rem;
+      color: #6b7280;
+      line-height: 1.45;
+    }
+    .dark .fr-variant-card-desc { color: #9ca3af; }
+    .fr-variant-card:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 2px #fff, 0 0 0 4px #F6A800;
+    }
+
+    /* === Ghost secondary button (e.g. Intel Mac) === */
+    .fr-btn-ghost {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      border: 1.5px solid #d18a00;
+      color: #a06100;
+      font-weight: 600;
+      font-size: 0.875rem;
+      padding: 0.5rem 1.25rem;
+      border-radius: 0.75rem;
+      transition: background 0.15s;
+      text-decoration: none;
+    }
+    .fr-btn-ghost:hover { background: #fff9e6; }
+    .dark .fr-btn-ghost { border-color: #ffc338; color: #ffd366; }
+    .dark .fr-btn-ghost:hover { background: rgba(62, 37, 0, 0.3); }
+
+    /* === Hero color enhancement === */
+    .fr-hero {
+      position: relative;
+      background: radial-gradient(ellipse 130% 90% at 50% -15%, #ffefc2 0%, #fff6d8 28%, #ffffff 70%);
+    }
+    .dark .fr-hero {
+      background: radial-gradient(ellipse 130% 90% at 50% -15%, rgba(62, 37, 0, 0.45) 0%, rgba(18, 10, 0, 0.55) 35%, #111827 70%);
+    }
+    .fr-hero::after {
+      content: "";
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 55%;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, #d18a00, transparent);
+      opacity: 0.3;
+    }
+    .fr-hero-subtitle {
+      color: #7c4d0e;
+    }
+    .dark .fr-hero-subtitle {
+      color: #dbb264;
+    }
   </style>
 </head>
 <body class="bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-sans">
@@ -264,34 +429,22 @@
 <main>
 
 <!-- HERO -->
-<section class="bg-gradient-to-br from-brand-50 to-white dark:from-gray-900 dark:to-gray-900 py-20 px-4 text-center">
+<section class="fr-hero py-20 px-4 text-center">
   <img src="icon.png"
        alt="" class="w-28 h-28 mx-auto mb-6" />
   <h1 class="text-4xl md:text-5xl font-extrabold text-brand-900 dark:text-brand-300 mb-4" data-i18n="hero.headline">
     Le multicompte, sans la prise de tête.
   </h1>
-  <p class="text-lg md:text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto mb-8" data-i18n="hero.subline">
+  <p class="text-lg md:text-xl fr-hero-subtitle max-w-2xl mx-auto mb-8" data-i18n="hero.subline">
     Focus Retro bascule automatiquement sur votre fenêtre Dofus Retro quand c'est votre tour, quand vous recevez une invitation de groupe ou une demande d'échange.
   </p>
-  <div class="flex flex-col sm:flex-row gap-3 justify-center mb-3">
-    <a id="hero-btn-windows" href="https://github.com/alacroix/focusretro/releases/download/v0.4.0/Focus.Retro_0.4.0_x64-setup.exe"
-       onclick="scrollToInstall('windows')"
-       class="inline-flex items-center gap-2 bg-gray-800 hover:bg-gray-900 text-white font-semibold px-6 py-3 rounded-xl shadow transition-colors">
-      <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.801"/></svg>
-      <span data-i18n="hero.downloadWin">Télécharger pour Windows</span>
-    </a>
-    <a id="hero-btn-macos" href="https://github.com/alacroix/focusretro/releases/download/v0.4.0/Focus.Retro_0.4.0_aarch64.dmg"
-       onclick="scrollToInstall('macos')"
-       class="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white font-semibold px-6 py-3 rounded-xl shadow transition-colors">
-      <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
-      <span data-i18n="hero.downloadMac">Télécharger pour macOS</span>
+  <div class="flex justify-center mb-3">
+    <a href="#install"
+       class="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white font-semibold px-8 py-3 rounded-xl shadow transition-colors">
+      <span data-i18n="hero.allDownloads">Voir les téléchargements</span>
     </a>
   </div>
-  <div class="flex flex-col items-center gap-3 text-sm text-gray-500 dark:text-gray-400">
-    <a href="https://github.com/alacroix/focusretro/releases/latest" target="_blank" rel="noopener"
-       class="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:underline" data-i18n="install.githubLink">Je préfère télécharger depuis GitHub directement</a>
-    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-brand-100 text-brand-800 dark:bg-brand-900/60 dark:text-brand-200">Gratuit &amp; open source</span>
-  </div>
+  <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-brand-200 text-brand-900 dark:bg-brand-900/60 dark:text-brand-200">Gratuit &amp; open source</span>
 </section>
 
 <!-- IS IT ALLOWED BANNER -->
@@ -627,6 +780,13 @@
             <td class="px-4 py-3" aria-label="Non"></td>
           </tr>
           <tr>
+            <td class="px-5 py-3 text-gray-700 dark:text-gray-300 font-medium" data-i18n="comp.offline">Version offline</td>
+            <td class="px-4 py-3 text-center text-green-600 bg-brand-200 dark:bg-brand-900/50"><svg class="w-4 h-4 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" role="img" aria-label="Oui"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg></td>
+            <td class="px-4 py-3 text-center text-green-600"><svg class="w-4 h-4 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" role="img" aria-label="Oui"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg></td>
+            <td class="px-4 py-3 text-center text-gray-400 text-xs" aria-label="Inconnu">?</td>
+            <td class="px-4 py-3 text-center text-gray-400 text-xs" aria-label="Inconnu">?</td>
+          </tr>
+          <tr>
             <td class="px-5 py-3 text-gray-700 dark:text-gray-300 font-medium">Open source</td>
             <td class="px-4 py-3 text-center text-green-600 bg-brand-200 dark:bg-brand-900/50"><svg class="w-4 h-4 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" role="img" aria-label="Oui"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg></td>
             <td class="px-4 py-3 text-center text-green-600"><svg class="w-4 h-4 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" role="img" aria-label="Oui"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg></td>
@@ -654,14 +814,14 @@
     <p class="text-center text-gray-500 dark:text-gray-400 mb-10" data-i18n="install.subtitle">Prêt en moins de 2 minutes.</p>
 
     <!-- OS Tabs -->
-    <div class="flex gap-2 mb-8 justify-center" role="tablist" aria-label="Operating system">
+    <div class="flex gap-2 mb-8 justify-center w-full" role="tablist" aria-label="Operating system">
       <button id="tab-windows-btn" onclick="showTab('windows')"
-        class="tab-btn px-5 py-2 rounded-lg border border-gray-300 font-semibold text-sm transition-colors"
+        class="tab-btn w-32 py-2 rounded-lg border border-gray-300 font-semibold text-sm transition-colors"
         role="tab" aria-selected="false" aria-controls="tab-windows">
         Windows
       </button>
       <button id="tab-macos-btn" onclick="showTab('macos')"
-        class="tab-btn px-5 py-2 rounded-lg border border-gray-300 font-semibold text-sm transition-colors"
+        class="tab-btn w-32 py-2 rounded-lg border border-gray-300 font-semibold text-sm transition-colors"
         role="tab" aria-selected="false" aria-controls="tab-macos">
         macOS
       </button>
@@ -670,46 +830,54 @@
     <!-- macOS Tab -->
     <div id="tab-macos" class="tab-content" role="tabpanel" aria-labelledby="tab-macos-btn">
 
-      <div class="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/50 rounded-2xl p-6 mb-8">
-        <div class="flex items-start gap-3 mb-4">
-          <span class="text-xl">⚙️</span>
-          <h3 class="font-bold text-blue-900 dark:text-blue-300" data-i18n="prereq.mac.title">Avant tout : deux réglages à faire</h3>
-        </div>
-        <div class="flex flex-col gap-6">
-          <div>
-            <p class="text-sm text-blue-800 dark:text-blue-400 font-semibold mb-1" data-i18n="prereq.step1">Activer les notifications sur Dofus Retro</p>
-            <p class="text-sm text-blue-700 dark:text-blue-300 mb-3" data-i18n="prereq.desc">Dans Dofus Retro, allez dans <strong>Options → Général</strong> et activez l'option <strong>« Notifications en arrière-plan »</strong>. À faire pour <strong>chaque fenêtre Dofus ouverte</strong>. Sans ça, Focus Retro ne recevra aucun événement.</p>
-            <img id="dofus-notif-screenshot"
-                 src="screenshots/dofus-notif-fr.webp"
-                 alt="Dofus Options - Notifications en arrière-plan"
-                 class="max-w-xs w-full rounded-xl border border-blue-200 shadow-sm mx-auto block"
-                 width="526" height="64"
-                 loading="lazy"
-                 onerror="this.style.display='none';" />
-          </div>
-          <div>
-            <p class="text-sm text-blue-800 dark:text-blue-400 font-semibold mb-1" data-i18n="prereq.mac.step2">Autoriser « Dofus Retro » dans macOS</p>
-            <p class="text-sm text-blue-700 dark:text-blue-300 mb-3" data-i18n="prereq.mac.desc">Dans Réglages Système → Notifications, trouvez <strong>« Dofus Retro »</strong> et activez les notifications. Sélectionnez <strong>« Bannières »</strong>.</p>
-            <img src="screenshots/mac-notif-settings.webp"
-                 alt="macOS Notifications - Dofus Retro"
-                 class="max-w-xs w-full rounded-xl border border-blue-200 shadow-sm mx-auto block"
-                 width="1120" height="922"
-                 loading="lazy"
-                 onerror="this.style.display='none';" />
-          </div>
-        </div>
+      <!-- Variant cards -->
+      <div class="grid grid-cols-2 gap-3 mb-8 max-w-lg mx-auto" role="group" aria-label="Version">
+        <button type="button"
+                data-variant-os="mac" data-variant="standard"
+                class="fr-variant-card active"
+                onclick="setVariant('mac', 'standard')"
+                aria-pressed="true">
+          <span class="fr-variant-card-title">Standard</span>
+          <span class="fr-variant-card-desc" data-i18n="install.variant.standard.desc">Vérifie les mises à jour au lancement. Peut être désactivé avant tout appel réseau.</span>
+        </button>
+        <button type="button"
+                data-variant-os="mac" data-variant="offline"
+                class="fr-variant-card"
+                onclick="setVariant('mac', 'offline')"
+                aria-pressed="false">
+          <span class="fr-variant-card-title">
+            <svg class="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="2" y1="2" x2="22" y2="22"/><path d="M5.782 5.782A7 7 0 0 0 9 19h8.5a4.5 4.5 0 0 0 1.421-.226"/><path d="M21.532 16.5A4.5 4.5 0 0 0 17.5 10h-1.79A7.008 7.008 0 0 0 10 5.07"/></svg>
+            Offline
+          </span>
+          <span class="fr-variant-card-desc" data-i18n="install.variant.offline.desc">Aucune connexion possible, même accidentellement. Mises à jour manuelles.</span>
+        </button>
       </div>
 
-      <div class="flex flex-col items-center gap-2 mb-8">
-        <a href="https://github.com/alacroix/focusretro/releases/download/v0.4.0/Focus.Retro_0.4.0_aarch64.dmg"
-           class="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white font-semibold px-6 py-3 rounded-xl shadow transition-colors">
-          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
-          <span data-i18n="install.mac.downloadBtn">Télécharger le .dmg (Apple Silicon)</span>
-        </a>
-        <a href="https://github.com/alacroix/focusretro/releases/download/v0.4.0/Focus.Retro_0.4.0_x64.dmg"
-           class="text-sm text-brand-700 dark:text-brand-400 hover:underline" data-i18n="install.mac.intelLink">Version Intel Mac</a>
-        <a href="https://github.com/alacroix/focusretro/releases/latest" target="_blank" rel="noopener"
-           class="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:underline" data-i18n="install.githubLink">Je préfère télécharger depuis GitHub directement</a>
+      <div class="flex flex-col items-center gap-3 mb-10">
+        <!-- Standard -->
+        <div data-variant-content-os="mac" data-variant-content="standard" class="flex flex-col items-center gap-2 w-full">
+          <a href="https://github.com/alacroix/focusretro/releases/download/v0.4.0/Focus.Retro_0.4.0_aarch64.dmg"
+             class="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white font-semibold px-6 py-3 rounded-xl shadow transition-colors">
+            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+            <span data-i18n="install.mac.downloadBtn">Télécharger le .dmg (Apple Silicon)</span>
+          </a>
+          <a href="https://github.com/alacroix/focusretro/releases/download/v0.4.0/Focus.Retro_0.4.0_x64.dmg"
+             class="fr-btn-ghost" data-i18n="install.mac.intelLink">Version Intel Mac</a>
+          <a href="https://github.com/alacroix/focusretro/releases/latest" target="_blank" rel="noopener"
+             class="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:underline" data-i18n="install.githubLink">Tous les téléchargements sur GitHub</a>
+        </div>
+        <!-- Offline -->
+        <div data-variant-content-os="mac" data-variant-content="offline" class="flex flex-col items-center gap-2 w-full" style="display:none">
+          <a href="https://github.com/alacroix/focusretro/releases/download/v0.4.0/Focus.Retro_0.4.0_aarch64_offline.dmg"
+             class="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white font-semibold px-6 py-3 rounded-xl shadow transition-colors">
+            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+            <span data-i18n="install.mac.downloadBtn">Télécharger le .dmg (Apple Silicon)</span>
+          </a>
+          <a href="https://github.com/alacroix/focusretro/releases/download/v0.4.0/Focus.Retro_0.4.0_x64_offline.dmg"
+             class="fr-btn-ghost" data-i18n="install.mac.intelLink">Version Intel Mac</a>
+          <a href="https://github.com/alacroix/focusretro/releases/latest" target="_blank" rel="noopener"
+             class="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:underline" data-i18n="install.githubLink">Tous les téléchargements sur GitHub</a>
+        </div>
       </div>
 
       <ol class="space-y-6">
@@ -728,7 +896,6 @@
             <p class="text-sm text-gray-600 dark:text-gray-400 mt-1" data-i18n="install.mac.s2.desc">Faites glisser l'icône Focus Retro vers le dossier Applications dans la fenêtre du dmg.</p>
           </div>
         </li>
-
 
         <li class="flex gap-4">
           <span class="flex-shrink-0 w-8 h-8 bg-brand-600 text-white rounded-full flex items-center justify-center font-bold text-sm">3</span>
@@ -751,6 +918,34 @@
           </div>
         </li>
 
+        <li class="flex gap-4">
+          <span class="flex-shrink-0 w-8 h-8 bg-brand-600 text-white rounded-full flex items-center justify-center font-bold text-sm">5</span>
+          <div class="flex-1">
+            <p class="font-semibold text-gray-900 dark:text-gray-100" data-i18n="prereq.step1">Activer les notifications sur Dofus Retro</p>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mt-1" data-i18n="prereq.desc">Dans Dofus Retro, allez dans <strong>Options → Général</strong> et activez l'option <strong>« Notifications en arrière-plan »</strong>. À faire pour <strong>chaque fenêtre Dofus ouverte</strong>. Sans ça, Focus Retro ne recevra aucun événement.</p>
+            <img id="dofus-notif-screenshot"
+                 src="screenshots/dofus-notif-fr.webp"
+                 alt="Dofus Options - Notifications en arrière-plan"
+                 class="mt-3 max-w-xs w-full rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm mx-auto block"
+                 width="526" height="64"
+                 loading="lazy"
+                 onerror="this.style.display='none';" />
+          </div>
+        </li>
+
+        <li class="flex gap-4">
+          <span class="flex-shrink-0 w-8 h-8 bg-brand-600 text-white rounded-full flex items-center justify-center font-bold text-sm">6</span>
+          <div class="flex-1">
+            <p class="font-semibold text-gray-900 dark:text-gray-100" data-i18n="prereq.mac.step2">Autoriser « Dofus Retro » dans macOS</p>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mt-1" data-i18n="prereq.mac.desc">Dans Réglages Système → Notifications, trouvez <strong>« Dofus Retro »</strong> et activez les notifications. Sélectionnez <strong>« Bannières »</strong>.</p>
+            <img src="screenshots/mac-notif-settings.webp"
+                 alt="macOS Notifications - Dofus Retro"
+                 class="mt-3 max-w-xs w-full rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm mx-auto block"
+                 width="1120" height="922"
+                 loading="lazy"
+                 onerror="this.style.display='none';" />
+          </div>
+        </li>
 
         <li class="flex gap-4">
           <span class="flex-shrink-0 w-8 h-8 bg-green-600 text-white rounded-full flex items-center justify-center font-bold text-sm">✓</span>
@@ -765,46 +960,50 @@
     <!-- Windows Tab -->
     <div id="tab-windows" class="tab-content" role="tabpanel" aria-labelledby="tab-windows-btn">
 
-      <!-- Windows prereqs merged -->
-      <div class="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/50 rounded-2xl p-6 mb-8">
-        <div class="flex items-start gap-3 mb-4">
-          <span class="text-xl">⚙️</span>
-          <h3 class="font-bold text-blue-900 dark:text-blue-300" data-i18n="prereq.win.title">Avant tout : deux réglages à faire</h3>
-        </div>
-        <div class="flex flex-col gap-6">
-          <div>
-            <p class="text-sm text-blue-800 dark:text-blue-400 font-semibold mb-1" data-i18n="prereq.win.step1">Activer les notifications sur Dofus Retro</p>
-            <p class="text-sm text-blue-700 dark:text-blue-300 mb-3" data-i18n="prereq.desc">Dans Dofus Retro, allez dans <strong>Options → Général</strong> et activez l'option <strong>« Notifications en arrière-plan »</strong>. À faire pour <strong>chaque fenêtre Dofus ouverte</strong>.</p>
-            <img src="screenshots/dofus-notif-fr.webp" id="dofus-notif-screenshot-win"
-                 alt="Dofus Options - Notifications en arrière-plan"
-                 class="max-w-xs w-full rounded-xl border border-blue-200 shadow-sm mx-auto block"
-                 width="526" height="64"
-                 loading="lazy"
-                 onerror="this.style.display='none';" />
-          </div>
-          <div>
-            <p class="text-sm text-blue-800 dark:text-blue-400 font-semibold mb-1" data-i18n="prereq.win.step2">Autoriser « Dofus 1 » dans Windows</p>
-            <p class="text-sm text-blue-700 dark:text-blue-300 mb-3" data-i18n="prereq.win.desc">Allez dans <strong>Paramètres → Système → Actions et notifications</strong>, trouvez « Dofus 1 » dans la liste et activez-le. Activer les bannières est optionnel.</p>
-            <img src="screenshots/win-dofus-global.webp" alt="Dofus dans la liste des notifications"
-                 class="max-w-xs w-full rounded-xl border border-blue-200 shadow-sm mx-auto block"
-                 width="856" height="76" loading="lazy" onerror="this.style.display='none';" />
-            <img src="screenshots/win-dofus-settings.webp" alt="Paramètres notifications Dofus"
-                 class="max-w-xs w-full rounded-xl border border-blue-200 shadow-sm mx-auto block mt-3"
-                 width="494" height="807" loading="lazy" onerror="this.style.display='none';" />
-          </div>
-        </div>
+      <!-- Variant cards -->
+      <div class="grid grid-cols-2 gap-3 mb-8 max-w-lg mx-auto" role="group" aria-label="Version">
+        <button type="button"
+                data-variant-os="win" data-variant="standard"
+                class="fr-variant-card active"
+                onclick="setVariant('win', 'standard')"
+                aria-pressed="true">
+          <span class="fr-variant-card-title">Standard</span>
+          <span class="fr-variant-card-desc" data-i18n="install.variant.standard.desc">Vérifie les mises à jour au lancement. Peut être désactivé avant tout appel réseau.</span>
+        </button>
+        <button type="button"
+                data-variant-os="win" data-variant="offline"
+                class="fr-variant-card"
+                onclick="setVariant('win', 'offline')"
+                aria-pressed="false">
+          <span class="fr-variant-card-title">
+            <svg class="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="2" y1="2" x2="22" y2="22"/><path d="M5.782 5.782A7 7 0 0 0 9 19h8.5a4.5 4.5 0 0 0 1.421-.226"/><path d="M21.532 16.5A4.5 4.5 0 0 0 17.5 10h-1.79A7.008 7.008 0 0 0 10 5.07"/></svg>
+            Offline
+          </span>
+          <span class="fr-variant-card-desc" data-i18n="install.variant.offline.desc">Aucune connexion possible, même accidentellement. Mises à jour manuelles.</span>
+        </button>
       </div>
 
-      <div class="flex flex-col items-center gap-2 mb-8">
-        <a href="https://github.com/alacroix/focusretro/releases/download/v0.4.0/Focus.Retro_0.4.0_x64-setup.exe"
-           class="inline-flex items-center gap-2 bg-gray-800 hover:bg-gray-900 text-white font-semibold px-6 py-3 rounded-xl shadow transition-colors">
-          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.801"/></svg>
-          <span data-i18n="install.win.downloadBtn">Télécharger l'installeur .exe</span>
-        </a>
-        <a href="https://github.com/alacroix/focusretro/releases/download/v0.4.0/Focus.Retro_0.4.0_x64_en-US.msi"
-           class="text-sm text-brand-700 dark:text-brand-400 hover:underline" data-i18n="install.win.msiLink">Version MSI</a>
-        <a href="https://github.com/alacroix/focusretro/releases/latest" target="_blank" rel="noopener"
-           class="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:underline" data-i18n="install.githubLink">Je préfère télécharger depuis GitHub directement</a>
+      <div class="flex flex-col items-center gap-3 mb-10">
+        <!-- Standard -->
+        <div data-variant-content-os="win" data-variant-content="standard" class="flex flex-col items-center gap-2 w-full">
+          <a href="https://github.com/alacroix/focusretro/releases/download/v0.4.0/Focus.Retro_0.4.0_x64-setup.exe"
+             class="inline-flex items-center gap-2 bg-gray-800 hover:bg-gray-900 text-white font-semibold px-6 py-3 rounded-xl shadow transition-colors">
+            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.801"/></svg>
+            <span data-i18n="install.win.downloadBtn">Télécharger l'installeur .exe</span>
+          </a>
+          <a href="https://github.com/alacroix/focusretro/releases/latest" target="_blank" rel="noopener"
+             class="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:underline" data-i18n="install.githubLink">Tous les téléchargements sur GitHub</a>
+        </div>
+        <!-- Offline -->
+        <div data-variant-content-os="win" data-variant-content="offline" class="flex flex-col items-center gap-2 w-full" style="display:none">
+          <a href="https://github.com/alacroix/focusretro/releases/download/v0.4.0/Focus.Retro_0.4.0_x64-setup_offline.exe"
+             class="inline-flex items-center gap-2 bg-gray-800 hover:bg-gray-900 text-white font-semibold px-6 py-3 rounded-xl shadow transition-colors">
+            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.801"/></svg>
+            <span data-i18n="install.win.downloadBtn">Télécharger l'installeur .exe</span>
+          </a>
+          <a href="https://github.com/alacroix/focusretro/releases/latest" target="_blank" rel="noopener"
+             class="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:underline" data-i18n="install.githubLink">Tous les téléchargements sur GitHub</a>
+        </div>
       </div>
 
       <ol class="space-y-6">
@@ -824,6 +1023,33 @@
           </div>
         </li>
 
+        <li class="flex gap-4">
+          <span class="flex-shrink-0 w-8 h-8 bg-gray-800 text-white rounded-full flex items-center justify-center font-bold text-sm">3</span>
+          <div class="flex-1">
+            <p class="font-semibold text-gray-900 dark:text-gray-100" data-i18n="prereq.win.step1">Activer les notifications sur Dofus Retro</p>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mt-1" data-i18n="prereq.desc">Dans Dofus Retro, allez dans <strong>Options → Général</strong> et activez l'option <strong>« Notifications en arrière-plan »</strong>. À faire pour <strong>chaque fenêtre Dofus ouverte</strong>.</p>
+            <img src="screenshots/dofus-notif-fr.webp" id="dofus-notif-screenshot-win"
+                 alt="Dofus Options - Notifications en arrière-plan"
+                 class="mt-3 max-w-xs w-full rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm mx-auto block"
+                 width="526" height="64"
+                 loading="lazy"
+                 onerror="this.style.display='none';" />
+          </div>
+        </li>
+
+        <li class="flex gap-4">
+          <span class="flex-shrink-0 w-8 h-8 bg-gray-800 text-white rounded-full flex items-center justify-center font-bold text-sm">4</span>
+          <div class="flex-1">
+            <p class="font-semibold text-gray-900 dark:text-gray-100" data-i18n="prereq.win.step2">Autoriser « Dofus 1 » dans Windows</p>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mt-1" data-i18n="prereq.win.desc">Allez dans <strong>Paramètres → Système → Actions et notifications</strong>, trouvez « Dofus 1 » dans la liste et activez-le. Activer les bannières est optionnel.</p>
+            <img src="screenshots/win-dofus-global.webp" alt="Dofus dans la liste des notifications"
+                 class="mt-3 max-w-xs w-full rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm mx-auto block"
+                 width="856" height="76" loading="lazy" onerror="this.style.display='none';" />
+            <img src="screenshots/win-dofus-settings.webp" alt="Paramètres notifications Dofus"
+                 class="mt-3 max-w-xs w-full rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm mx-auto block"
+                 width="494" height="807" loading="lazy" onerror="this.style.display='none';" />
+          </div>
+        </li>
 
         <li class="flex gap-4">
           <span class="flex-shrink-0 w-8 h-8 bg-green-600 text-white rounded-full flex items-center justify-center font-bold text-sm">✓</span>
@@ -887,6 +1113,14 @@
         </div>
       </details>
 
+      <details id="faq-offline" class="bg-gray-50 dark:bg-gray-800 rounded-2xl p-6 cursor-pointer group">
+        <summary class="font-semibold text-gray-900 dark:text-gray-100 list-none flex justify-between items-center">
+          <span class="dark:text-gray-100" data-i18n="faq.offline.q">Quelle différence entre la version standard et la version offline ?</span>
+          <span class="text-brand-600 group-open:rotate-180 transition-transform" aria-hidden="true">▼</span>
+        </summary>
+        <div class="mt-3 text-gray-700 dark:text-gray-300 text-sm" data-i18n="faq.offline.a"></div>
+      </details>
+
       <details class="bg-gray-50 dark:bg-gray-800 rounded-2xl p-6 cursor-pointer group">
         <summary class="font-semibold text-gray-900 dark:text-gray-100 list-none flex justify-between items-center">
           <span class="dark:text-gray-100" data-i18n="faq.free.q">C'est gratuit ?</span>
@@ -944,7 +1178,7 @@
       <span>·</span>
       <a href="https://github.com/alacroix/focusretro/releases" target="_blank" rel="noopener" class="hover:text-white" data-i18n="footer.releases">Releases</a>
     </div>
-    <p data-i18n="footer.legal">Licence MIT · Non affilié à Ankama · Dofus est une marque déposée d'Ankama</p>
+    <p data-i18n="footer.legal">Dofus Retro est un MMORPG édité par Ankama. Focus Retro est un outil indépendant et non-officiel, sans aucun lien avec Ankama.<br>Certains visuels utilisés sur cette application sont la propriété d'Ankama. Dofus est une marque déposée d'Ankama · © 2025 alacroix · Distribué sous licence MIT</p>
   </div>
 </footer>
 
@@ -958,7 +1192,7 @@
       "hero.subline": "Focus Retro bascule automatiquement sur votre fenêtre Dofus Retro quand c'est votre tour, quand vous recevez une invitation de groupe ou une demande d'échange.",
       "hero.downloadMac": "Télécharger pour macOS",
       "hero.downloadWin": "Télécharger pour Windows",
-      "hero.allDownloads": "Tous les téléchargements",
+      "hero.allDownloads": "Voir les téléchargements",
       "hero.badges": "Open source · Gratuit · Ne modifie pas le jeu",
       "hero.badge.opensource": "Open source",
       "hero.badge.free": "Gratuit",
@@ -1007,8 +1241,13 @@
       "prereq.desc": "Dans Dofus Retro, allez dans <strong>Options → Général</strong> et activez l'option <strong>« Notifications en arrière-plan »</strong>. À faire pour <strong>chaque fenêtre Dofus ouverte</strong>. Sans ça, Focus Retro ne recevra aucun événement.",
       "install.title": "Installation",
       "install.subtitle": "Prêt en moins de 2 minutes.",
-      "install.mac.downloadBtn": "Télécharger le .dmg (Apple Silicon)",
-      "install.mac.intelLink": "Version Intel Mac",
+      "install.downloadPrompt": "Pas encore téléchargé ? Choisissez votre version ci-dessous.",
+      "install.variantTooltip": "Standard : une connexion au démarrage pour vérifier les mises à jour (désactivable). Offline : zéro connexion réseau, mises à jour manuelles.",
+      "install.variantHint": "Standard : vérifie les mises à jour au démarrage · Offline : zéro connexion réseau",
+      "install.variant.standard.desc": "Vérifie les mises à jour au lancement. Peut être désactivé avant tout appel réseau.",
+      "install.variant.offline.desc": "Aucune connexion possible, même accidentellement. Mises à jour manuelles.",
+      "install.mac.downloadBtn": "Télécharger pour Mac (Apple Silicon)",
+      "install.mac.intelLink": "Version Intel",
       "install.mac.s1.title": "Ouvrez le fichier .dmg",
       "install.mac.s1.desc": "Double-cliquez sur le fichier téléchargé pour monter le disque.",
       "install.mac.s2.title": "Glissez Focus Retro dans Applications",
@@ -1019,7 +1258,7 @@
       "install.mac.s4.desc": "Au premier lancement, une fenêtre vous demande la permission. Allez dans Réglages Système → Confidentialité et sécurité → Accessibilité → activez Focus Retro.",
       "install.mac.s5.title": "C'est prêt !",
       "install.mac.s5.desc": "Focus Retro apparaît dans la barre de menus. Lancez Dofus Retro et jouez normalement.",
-      "install.win.downloadBtn": "Télécharger l'installeur .exe",
+      "install.win.downloadBtn": "Télécharger pour Windows",
       "install.win.msiLink": "Version MSI",
       "install.win.s1.title": "Lancez l'installeur",
       "install.win.s1.desc": "Double-cliquez sur le fichier .exe téléchargé.",
@@ -1028,7 +1267,16 @@
       "install.win.s4.title": "C'est prêt !",
       "install.win.s4.desc": "Focus Retro apparaît dans la barre des tâches. Lancez Dofus Retro et jouez normalement.",
       "comp.wheel": "Roue rapide",
-      "install.githubLink": "Je préfère télécharger depuis GitHub directement",
+      "comp.offline": "Version offline",
+      "install.githubLink": "Tous les téléchargements sur GitHub",
+      "hero.offlineLink": "Version offline disponible - zéro connexion réseau, mises à jour manuelles",
+      "install.offlineTitle": "Version offline (zéro connexion réseau - mises à jour manuelles) :",
+      "install.offlineMacArm": "Apple Silicon (offline)",
+      "install.offlineMacIntel": "Intel (offline)",
+      "install.offlineWin": "Windows x64 (offline)",
+      "install.offlineNote": "Aucune connexion réseau. Mises à jour manuelles.",
+      "install.offlineWhat": "C'est quoi la version offline ?",
+      "install.variantNote": "Standard : 1 connexion au démarrage (vérification de mise à jour). Offline : zéro connexion réseau, mises à jour manuelles.",
       "verified.title": "Téléchargez uniquement depuis GitHub",
       "verified.desc": "Des sites tiers redistribuent des versions modifiées d'outils Dofus - certaines contiennent des keyloggers ou des stealers. <strong>Focus Retro</strong> est uniquement distribué sur GitHub, sur le repo <a href=\"https://github.com/alacroix/focusretro\" target=\"_blank\" rel=\"noopener\" class=\"font-semibold underline\">alacroix/focusretro</a>. <br>Pour les plus prudents, chaque release est accompagnée d'une attestation de build signée par GitHub Actions : c'est la garantie que ce que vous téléchargez correspond exactement au code source public. <a href=\"https://github.com/alacroix/focusretro/attestations?q=0.4.0\" target=\"_blank\" rel=\"noopener\" class=\"font-semibold underline\">Voir les attestations</a>.",
       "verified.caption": "Ne téléchargez pas depuis Discord, un autre repo GitHub ou un site tiers - le fichier peut être modifié.",
@@ -1039,7 +1287,9 @@
       "faq.auto.q": "Est-ce qu'il joue à ma place ?",
       "faq.auto.a": "Non. Focus Retro bascule uniquement la fenêtre au premier plan. Vous devez toujours jouer votre tour vous-même.",
       "faq.privacy.q": "Est-ce qu'il collecte mes données ?",
-      "faq.privacy.a": "<p>Non. Focus Retro ne collecte, n'envoie et ne stocke aucune donnée personnelle. Tout reste sur votre machine.</p><p class=\"mt-2\">La seule connexion réseau est la <strong>vérification de mise à jour</strong> au lancement, qui interroge uniquement GitHub Releases pour comparer les numéros de version. Aucune information sur vous ou votre usage n'est transmise.</p><p class=\"mt-2\">Le code source complet est disponible sur GitHub - vous pouvez l'auditer, le compiler vous-même et vérifier chaque ligne.</p>",
+      "faq.privacy.a": "<p>Non. Focus Retro ne collecte, n'envoie et ne stocke aucune donnée personnelle. Tout reste sur votre machine.</p><p class=\"mt-2\">La seule connexion réseau est la <strong>vérification de mise à jour</strong> au lancement, qui interroge uniquement GitHub Releases pour comparer les numéros de version. Aucune information sur vous ou votre usage n'est transmise.</p><p class=\"mt-2\">Le code source complet est disponible sur GitHub - vous pouvez l'auditer, le compiler vous-même et vérifier chaque ligne.</p><p class=\"mt-2\">Si vous souhaitez zéro connexion réseau, une version offline est disponible.</p>",
+      "faq.offline.q": "Quelle différence entre la version standard et la version offline ?",
+      "faq.offline.a": "<p>La version <strong>standard</strong> effectue une seule connexion réseau au démarrage - uniquement pour vérifier si une nouvelle version est disponible. Vous pouvez désactiver cette vérification dans les paramètres, mais le code de mise à jour reste présent dans l'application.</p><p class=\"mt-2\">La version <strong>offline</strong> va plus loin : le code de mise à jour n'est pas compilé dedans. Aucune connexion réseau n'est possible, même accidentellement. En contrepartie, vous devrez surveiller les <a href=\"https://github.com/alacroix/focusretro/releases/latest\" target=\"_blank\" rel=\"noopener\" class=\"text-brand-600 hover:underline\">releases GitHub</a> et mettre à jour manuellement.</p>",
       "faq.free.q": "C'est gratuit ?",
       "faq.free.a": "Oui, entièrement gratuit et open source (licence MIT). Aucun compte, aucun abonnement, aucune donnée collectée.",
       "faq.multi.q": "Ça apporte quoi de plus qu'Organizer ?",
@@ -1051,7 +1301,7 @@
       "footer.discord": "Discord",
       "footer.releases": "Releases",
       "footer.tweet": "Source Ankama",
-      "footer.legal": "Licence MIT · Non affilié à Ankama · Dofus est une marque déposée d'Ankama"
+      "footer.legal": "Dofus Retro est un MMORPG édité par Ankama. Focus Retro est un outil indépendant et non-officiel, sans aucun lien avec Ankama.<br>Certains visuels utilisés sur cette application sont la propriété d'Ankama. Dofus est une marque déposée d'Ankama · © 2025 alacroix · Distribué sous licence MIT"
     },
     en: {
       "nav.features": "Features",
@@ -1060,7 +1310,7 @@
       "hero.subline": "Focus Retro automatically brings your Dofus Retro window to the front when it's your turn, when you receive a group invite, or when someone wants to trade.",
       "hero.downloadMac": "Download for macOS",
       "hero.downloadWin": "Download for Windows",
-      "hero.allDownloads": "All downloads",
+      "hero.allDownloads": "Download",
       "hero.badges": "Open source · Free · No game modification",
       "hero.badge.opensource": "Open source",
       "hero.badge.free": "Free",
@@ -1109,8 +1359,13 @@
       "prereq.desc": "In Dofus Retro, go to <strong>Options → General</strong> and enable <strong>\"Background notifications\"</strong>. Do this for <strong>every open Dofus window</strong>. Without this, Focus Retro won't receive any events.",
       "install.title": "Installation",
       "install.subtitle": "Ready in under 2 minutes.",
-      "install.mac.downloadBtn": "Download .dmg (Apple Silicon)",
-      "install.mac.intelLink": "Intel Mac version",
+      "install.downloadPrompt": "Haven't downloaded yet? Choose your version below.",
+      "install.variantTooltip": "Standard: one connection at startup to check for updates (optional). Offline: zero network connections, manual updates.",
+      "install.variantHint": "Standard: checks for updates at startup · Offline: zero network connections",
+      "install.variant.standard.desc": "Checks for updates at launch. Can be disabled before any network call.",
+      "install.variant.offline.desc": "No connection possible, even accidentally. Manual updates.",
+      "install.mac.downloadBtn": "Download for Mac (Apple Silicon)",
+      "install.mac.intelLink": "Intel version",
       "install.mac.s1.title": "Open the .dmg file",
       "install.mac.s1.desc": "Double-click the downloaded file to mount the disk.",
       "install.mac.s2.title": "Drag Focus Retro to Applications",
@@ -1121,7 +1376,7 @@
       "install.mac.s4.desc": "On first launch, a window asks for permission. Go to System Settings → Privacy & Security → Accessibility → enable Focus Retro.",
       "install.mac.s5.title": "You're all set!",
       "install.mac.s5.desc": "Focus Retro appears in your menu bar. Launch Dofus Retro and play normally.",
-      "install.win.downloadBtn": "Download .exe installer",
+      "install.win.downloadBtn": "Download for Windows",
       "install.win.msiLink": "MSI version",
       "install.win.s1.title": "Run the installer",
       "install.win.s1.desc": "Double-click the downloaded .exe file.",
@@ -1130,7 +1385,16 @@
       "install.win.s4.title": "You're all set!",
       "install.win.s4.desc": "Focus Retro appears in your system tray. Launch Dofus Retro and play normally.",
       "comp.wheel": "Quick wheel",
-      "install.githubLink": "I prefer to download directly from GitHub",
+      "comp.offline": "Offline version",
+      "install.githubLink": "All downloads on GitHub",
+      "hero.offlineLink": "Offline version available - zero network connections, manual updates",
+      "install.offlineTitle": "Offline version (zero network connections - manual updates):",
+      "install.offlineMacArm": "Apple Silicon (offline)",
+      "install.offlineMacIntel": "Intel (offline)",
+      "install.offlineWin": "Windows x64 (offline)",
+      "install.offlineNote": "No network connections. Manual updates.",
+      "install.offlineWhat": "What's the offline version?",
+      "install.variantNote": "Standard: 1 connection at startup (update check). Offline: zero network connections, manual updates.",
       "verified.title": "Only download from GitHub",
       "verified.desc": "Third-party sites redistribute modified versions of Dofus tools - some contain keyloggers or stealers. <strong>Focus Retro</strong> is only distributed on GitHub, on the <a href=\"https://github.com/alacroix/focusretro\" target=\"_blank\" rel=\"noopener\" class=\"font-semibold underline\">alacroix/focusretro</a> repo. <br>For the extra cautious, every release includes a build attestation signed by GitHub Actions: a guarantee that what you download matches exactly the public source code. <a href=\"https://github.com/alacroix/focusretro/attestations?q=0.4.0\" target=\"_blank\" rel=\"noopener\" class=\"font-semibold underline\">View attestations</a>.",
       "verified.caption": "Don't download from Discord, another GitHub repo, or a third-party site - the file may be modified.",
@@ -1141,7 +1405,9 @@
       "faq.auto.q": "Does it play the game for me?",
       "faq.auto.a": "No. Focus Retro only focuses the window. You still need to play your turn yourself.",
       "faq.privacy.q": "Does it collect my data?",
-      "faq.privacy.a": "<p>No. Focus Retro collects, sends, and stores no personal data. Everything stays on your machine.</p><p class=\"mt-2\">The only network connection is the <strong>update check</strong> on launch, which queries GitHub Releases to compare version numbers. No information about you or your usage is ever transmitted.</p><p class=\"mt-2\">The full source code is available on GitHub - you can audit it, build it yourself, and verify every line.</p>",
+      "faq.privacy.a": "<p>No. Focus Retro collects, sends, and stores no personal data. Everything stays on your machine.</p><p class=\"mt-2\">The only network connection is the <strong>update check</strong> on launch, which queries GitHub Releases to compare version numbers. No information about you or your usage is ever transmitted.</p><p class=\"mt-2\">The full source code is available on GitHub - you can audit it, build it yourself, and verify every line.</p><p class=\"mt-2\">If you want zero network connections, an offline version is available.</p>",
+      "faq.offline.q": "What's the difference between the standard and offline versions?",
+      "faq.offline.a": "<p>The <strong>standard</strong> version makes one network connection at startup - only to check whether a new version is available. You can disable this check in settings, but the update code is still compiled into the app.</p><p class=\"mt-2\">The <strong>offline</strong> version goes further: the update code is not compiled in at all. No network connection is possible, even accidentally. The trade-off is that you'll need to watch the <a href=\"https://github.com/alacroix/focusretro/releases/latest\" target=\"_blank\" rel=\"noopener\" class=\"text-brand-600 hover:underline\">GitHub releases</a> and update manually.</p>",
       "faq.free.q": "Is it free?",
       "faq.free.a": "Yes, completely free and open source (MIT license). No account, no subscription, no data collected.",
       "faq.multi.q": "What does it offer over Organizer?",
@@ -1153,7 +1419,7 @@
       "footer.discord": "Discord",
       "footer.releases": "Releases",
       "footer.tweet": "Ankama source",
-      "footer.legal": "MIT License · Not affiliated with Ankama · Dofus is a trademark of Ankama"
+      "footer.legal": "Dofus Retro is a MMORPG published by Ankama. Focus Retro is an independent, unofficial tool with no affiliation to Ankama.<br>Some visuals used in this application are the property of Ankama. Dofus is a registered trademark of Ankama · © 2025 alacroix · Distributed under the MIT License"
     },
     es: {
       "nav.features": "Características",
@@ -1162,7 +1428,7 @@
       "hero.subline": "Focus Retro lleva automáticamente tu ventana de Dofus Retro al frente cuando es tu turno, cuando recibes una invitación de grupo o una solicitud de intercambio.",
       "hero.downloadMac": "Descargar para macOS",
       "hero.downloadWin": "Descargar para Windows",
-      "hero.allDownloads": "Todas las descargas",
+      "hero.allDownloads": "Descargar",
       "hero.badges": "Código abierto · Gratis · Sin modificar el juego",
       "hero.badge.opensource": "Código abierto",
       "hero.badge.free": "Gratis",
@@ -1211,8 +1477,13 @@
       "prereq.desc": "En Dofus Retro, ve a <strong>Opciones → General</strong> y activa la opción <strong>«Notificaciones en segundo plano»</strong>. Hazlo en <strong>cada ventana de Dofus abierta</strong>. Sin esto, Focus Retro no recibirá ningún evento.",
       "install.title": "Instalación",
       "install.subtitle": "Listo en menos de 2 minutos.",
-      "install.mac.downloadBtn": "Descargar .dmg (Apple Silicon)",
-      "install.mac.intelLink": "Versión Intel Mac",
+      "install.downloadPrompt": "¿Aún no has descargado? Elige tu versión a continuación.",
+      "install.variantTooltip": "Standard: una conexión al iniciar para verificar actualizaciones (desactivable). Offline: sin conexiones de red, actualizaciones manuales.",
+      "install.variantHint": "Standard: verifica actualizaciones al iniciar · Offline: sin conexión a internet",
+      "install.variant.standard.desc": "Verifica actualizaciones al inicio. Se puede desactivar antes de cualquier llamada de red.",
+      "install.variant.offline.desc": "Ninguna conexión posible, ni accidentalmente. Actualizaciones manuales.",
+      "install.mac.downloadBtn": "Descargar para Mac (Apple Silicon)",
+      "install.mac.intelLink": "Versión Intel",
       "install.mac.s1.title": "Abre el archivo .dmg",
       "install.mac.s1.desc": "Haz doble clic en el archivo descargado para montar el disco.",
       "install.mac.s2.title": "Arrastra Focus Retro a Aplicaciones",
@@ -1223,7 +1494,7 @@
       "install.mac.s4.desc": "En el primer inicio, una ventana pide permiso. Ve a Configuración del Sistema → Privacidad y seguridad → Accesibilidad → activa Focus Retro.",
       "install.mac.s5.title": "¡Todo listo!",
       "install.mac.s5.desc": "Focus Retro aparece en la barra de menú. Inicia Dofus Retro y juega normalmente.",
-      "install.win.downloadBtn": "Descargar instalador .exe",
+      "install.win.downloadBtn": "Descargar para Windows",
       "install.win.msiLink": "Versión MSI",
       "install.win.s1.title": "Ejecuta el instalador",
       "install.win.s1.desc": "Haz doble clic en el archivo .exe descargado.",
@@ -1232,7 +1503,16 @@
       "install.win.s4.title": "¡Todo listo!",
       "install.win.s4.desc": "Focus Retro aparece en la bandeja del sistema. Inicia Dofus Retro y juega normalmente.",
       "comp.wheel": "Rueda rápida",
-      "install.githubLink": "Prefiero descargar directamente desde GitHub",
+      "comp.offline": "Version offline",
+      "install.githubLink": "Todos los archivos en GitHub",
+      "hero.offlineLink": "Versión offline disponible - sin conexiones de red, actualizaciones manuales",
+      "install.offlineTitle": "Versión offline (sin conexiones de red - actualizaciones manuales):",
+      "install.offlineMacArm": "Apple Silicon (offline)",
+      "install.offlineMacIntel": "Intel (offline)",
+      "install.offlineWin": "Windows x64 (offline)",
+      "install.offlineNote": "Sin conexiones de red. Actualizaciones manuales.",
+      "install.offlineWhat": "¿Qué es la versión offline?",
+      "install.variantNote": "Standard: 1 conexión al iniciar (verificación de actualización). Offline: sin conexiones de red, actualizaciones manuales.",
       "verified.title": "Descarga únicamente desde GitHub",
       "verified.desc": "Sitios de terceros redistribuyen versiones modificadas de herramientas de Dofus - algunas contienen keyloggers o stealers. <strong>Focus Retro</strong> se distribuye únicamente en GitHub, en el repositorio <a href=\"https://github.com/alacroix/focusretro\" target=\"_blank\" rel=\"noopener\" class=\"font-semibold underline\">alacroix/focusretro</a>. <br>Para los más precavidos, cada release incluye una attestación de build firmada por GitHub Actions: es la garantía de que lo que descargas corresponde exactamente al código fuente público. <a href=\"https://github.com/alacroix/focusretro/attestations?q=0.4.0\" target=\"_blank\" rel=\"noopener\" class=\"font-semibold underline\">Ver las attestaciones</a>.",
       "verified.caption": "No descargues desde Discord, otro repositorio GitHub o un sitio de terceros - el archivo puede estar modificado.",
@@ -1243,7 +1523,9 @@
       "faq.auto.q": "¿Juega por mí?",
       "faq.auto.a": "No. Focus Retro solo enfoca la ventana. Tú sigues teniendo que jugar tu turno.",
       "faq.privacy.q": "¿Recopila mis datos?",
-      "faq.privacy.a": "<p>No. Focus Retro no recopila, envía ni almacena ningún dato personal. Todo permanece en tu máquina.</p><p class=\"mt-2\">La única conexión de red es la <strong>verificación de actualizaciones</strong> al iniciar, que consulta únicamente GitHub Releases para comparar números de versión. No se transmite ninguna información sobre ti ni sobre tu uso.</p><p class=\"mt-2\">El código fuente completo está disponible en GitHub - puedes auditarlo, compilarlo tú mismo y verificar cada línea.</p>",
+      "faq.privacy.a": "<p>No. Focus Retro no recopila, envía ni almacena ningún dato personal. Todo permanece en tu máquina.</p><p class=\"mt-2\">La única conexión de red es la <strong>verificación de actualizaciones</strong> al iniciar, que consulta únicamente GitHub Releases para comparar números de versión. No se transmite ninguna información sobre ti ni sobre tu uso.</p><p class=\"mt-2\">El código fuente completo está disponible en GitHub - puedes auditarlo, compilarlo tú mismo y verificar cada línea.</p><p class=\"mt-2\">Si quieres cero conexiones de red, hay una versión offline disponible.</p>",
+      "faq.offline.q": "¿Qué diferencia hay entre la versión estándar y la offline?",
+      "faq.offline.a": "<p>La versión <strong>estándar</strong> realiza una sola conexión de red al iniciar - únicamente para comprobar si hay una nueva versión disponible. Puedes desactivar esta comprobación en los ajustes, pero el código de actualización sigue compilado en la app.</p><p class=\"mt-2\">La versión <strong>offline</strong> va más lejos: el código de actualización no está compilado en absoluto. No es posible ninguna conexión de red, ni siquiera accidentalmente. A cambio, tendrás que vigilar las <a href=\"https://github.com/alacroix/focusretro/releases/latest\" target=\"_blank\" rel=\"noopener\" class=\"text-brand-600 hover:underline\">releases de GitHub</a> y actualizar manualmente.</p>",
       "faq.free.q": "¿Es gratuito?",
       "faq.free.a": "Sí, completamente gratuito y de código abierto (licencia MIT). Sin cuenta, sin suscripción, sin datos recopilados.",
       "faq.multi.q": "¿Qué aporta respecto a Organizer?",
@@ -1255,7 +1537,7 @@
       "footer.discord": "Discord",
       "footer.releases": "Releases",
       "footer.tweet": "Fuente Ankama",
-      "footer.legal": "Licencia MIT · No afiliado a Ankama · Dofus es una marca registrada de Ankama"
+      "footer.legal": "Dofus Retro es un MMORPG publicado por Ankama. Focus Retro es una herramienta independiente y no oficial, sin ningún vínculo con Ankama.<br>Algunos elementos visuales utilizados en esta aplicación son propiedad de Ankama. Dofus es una marca registrada de Ankama · © 2025 alacroix · Distribuido bajo licencia MIT"
     }
   };
 
@@ -1310,6 +1592,18 @@
     });
   }
 
+  // ── VARIANT TOGGLE (Standard / Offline) ───────────────────────────────────
+  function setVariant(os, variant) {
+    document.querySelectorAll(`[data-variant-os="${os}"]`).forEach(btn => {
+      const isActive = btn.dataset.variant === variant;
+      btn.classList.toggle('active', isActive);
+      btn.setAttribute('aria-pressed', String(isActive));
+    });
+    document.querySelectorAll(`[data-variant-content-os="${os}"]`).forEach(el => {
+      el.style.display = el.dataset.variantContent === variant ? '' : 'none';
+    });
+  }
+
   // ── OS TABS ───────────────────────────────────────────────────────────────
   function scrollToInstall(os) {
     showTab(os);
@@ -1349,11 +1643,9 @@
                  : (translations[browser] ? browser : 'fr');
     setLang(lang);
 
-    // OS tab + hero button
+    // OS tab
     const isWindows = navigator.userAgent.includes('Windows');
     showTab(isWindows ? 'windows' : 'macos');
-    document.getElementById('hero-btn-windows').style.display = isWindows ? '' : 'none';
-    document.getElementById('hero-btn-macos').style.display = isWindows ? 'none' : '';
   })();
 </script>
 
