@@ -17,7 +17,6 @@ import {
   HotkeyBinding,
   getHotkeys,
   setHotkey,
-  getLanguage,
   setLanguage,
   resetHotkeys,
   getCloseTotray,
@@ -239,7 +238,7 @@ function Settings({
   const [closeTotray, setCloseTotray] = useState(true);
   const [hotkeys, setHotkeys] = useState<HotkeyBinding[]>([]);
   const [recordingAction, setRecordingAction] = useState<string | null>(null);
-  const [language, setLang] = useState("en");
+  const [language, setLang] = useState(i18n.language);
   const [version, setVersion] = useState("");
   const [unlocked, setUnlocked] = useState(false);
   const konamiProgress = useState<number>(0);
@@ -252,7 +251,6 @@ function Settings({
     getAutoAcceptState().then(setAutoAccept);
     getCloseTotray().then(setCloseTotray);
     getHotkeys().then(setHotkeys);
-    getLanguage().then(setLang);
     getVersion().then(setVersion);
   }, []);
 

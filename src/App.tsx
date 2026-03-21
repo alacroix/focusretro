@@ -53,6 +53,7 @@ function App() {
   const [theme, setThemeState] = useState("system");
   const [updateConsent, setUpdateConsentState] = useState<boolean | null | undefined>(undefined);
   const [showConsentModal, setShowConsentModal] = useState(false);
+  const [languageReady, setLanguageReady] = useState(false);
 
   useEffect(() => {
     refreshAccounts().then(setAccounts);
@@ -62,10 +63,11 @@ function App() {
       setHasInputMonitoring(p.input_monitoring);
       setPermissionsChecked(true);
     });
-    getLanguage().then((lang) => {
+    getLanguage().then(async (lang) => {
       if (lang && lang !== i18n.language) {
-        i18n.changeLanguage(lang);
+        await i18n.changeLanguage(lang);
       }
+      setLanguageReady(true);
     });
     getHotkeys().then(setHotkeys);
     getShowDebug().then(setShowDebug);
@@ -173,7 +175,7 @@ function App() {
     });
   };
 
-  if (!permissionsChecked) {
+  if (!languageReady || !permissionsChecked) {
     return <div className="min-h-screen bg-white dark:bg-gray-950" />;
   }
 
