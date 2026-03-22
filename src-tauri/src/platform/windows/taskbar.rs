@@ -205,3 +205,66 @@ pub fn cleanup_all_icons(icon_handles: &mut HashMap<isize, isize>) {
     }
     icon_handles.clear();
 }
+
+// {56FDF344-FD6D-11D0-958A-006097C9A090}
+#[cfg(target_os = "windows")]
+const CLSID_TASKBAR_LIST: windows::core::GUID =
+    windows::core::GUID::from_u128(0x56fdf344_fd6d_11d0_958a_006097c9a090);
+
+/// Reorders taskbar buttons to match `windows_in_order` by cycling
+/// ITaskbarList::DeleteTab + AddTab for all windows in the AUMID cache.
+/// Since AddTab appends to the end, deleting all then re-adding in order
+/// sets the desired left-to-right sequence.
+/// Only processes windows already in `aumid_cache` (AUMID set in a prior cycle).
+/// Gracefully no-ops if ITaskbarList is unavailable (e.g. Explorer not running).
+#[cfg(target_os = "windows")]
+pub fn reorder_taskbar_buttons(windows_in_order: &[GameWindow], aumid_cache: &HashSet<isize>) {
+    use windows::{
+        Win32::{
+            System::Com::{CoCreateInstance, CLSCTX_INPROC_SERVER},
+            UI::Shell::ITaskbarList,
+        },
+    };
+
+    let ready: Vec<&GameWindow> = windows_in_order
+        .iter()
+        .filter(|w| aumid_cache.contains(&(w.window_id as isize)))
+        .collect();
+
+    if ready.len() < 2 {
+        return;
+    }
+
+    unsafe {
+        let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
+
+        let taskbar_list: ITaskbarList = match CoCreateInstance(
+            &CLSID_TASKBAR_LIST,
+            None,
+            CLSCTX_INPROC_SERVER,
+        ) {
+            Ok(tl) => tl,
+            Err(e) => {
+                warn!("reorder_taskbar_buttons: CoCreateInstance: {e}");
+                return;
+            }
+        };
+
+        if let Err(e) = taskbar_list.HrInit() {
+            warn!("reorder_taskbar_buttons: HrInit: {e}");
+            return;
+        }
+
+        // Remove all our windows from the taskbar
+        for window in &ready {
+            let hwnd = HWND(window.window_id as usize as *mut _);
+            let _ = taskbar_list.DeleteTab(hwnd);
+        }
+
+        // Re-add in desired order — AddTab appends each to the end
+        for window in &ready {
+            let hwnd = HWND(window.window_id as usize as *mut _);
+            let _ = taskbar_list.AddTab(hwnd);
+        }
+    }
+}

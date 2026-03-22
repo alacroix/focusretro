@@ -35,12 +35,18 @@ fn refresh_accounts(handle: &AppHandle, state: &Arc<AppState>) {
     #[cfg(target_os = "windows")]
     {
         use crate::platform::windows::taskbar;
+        use std::sync::atomic::Ordering;
 
         let current_windows = state.accounts.lock().unwrap().clone();
         let mut cache = state.taskbar_aumid_cache.lock().unwrap();
         let mut handles = state.taskbar_icon_handles.lock().unwrap();
         if state.is_taskbar_ungroup_enabled() {
             taskbar::apply_taskbar_identities(&current_windows, &mut cache, &mut handles);
+            let ver = state.taskbar_order_version.load(Ordering::Relaxed);
+            if ver != state.taskbar_order_version_applied.load(Ordering::Relaxed) {
+                state.taskbar_order_version_applied.store(ver, Ordering::Relaxed);
+                taskbar::reorder_taskbar_buttons(&current_windows, &cache);
+            }
         } else {
             taskbar::reset_taskbar_identities(&current_windows, &mut cache, &mut handles);
         }

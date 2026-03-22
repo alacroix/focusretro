@@ -251,6 +251,13 @@ pub struct AppState {
     pub taskbar_aumid_cache: Mutex<std::collections::HashSet<isize>>,
     #[cfg(target_os = "windows")]
     pub taskbar_icon_handles: Mutex<std::collections::HashMap<isize, isize>>,
+    /// Incremented whenever the account list or order changes.
+    #[cfg(target_os = "windows")]
+    pub taskbar_order_version: AtomicU64,
+    /// Tracks the version at which the last taskbar reorder was applied,
+    /// so both the poll path and the command path share the same "already done" state.
+    #[cfg(target_os = "windows")]
+    pub taskbar_order_version_applied: AtomicU64,
 }
 
 impl AppState {
@@ -298,6 +305,10 @@ impl AppState {
             taskbar_aumid_cache: Mutex::new(std::collections::HashSet::new()),
             #[cfg(target_os = "windows")]
             taskbar_icon_handles: Mutex::new(std::collections::HashMap::new()),
+            #[cfg(target_os = "windows")]
+            taskbar_order_version: AtomicU64::new(0),
+            #[cfg(target_os = "windows")]
+            taskbar_order_version_applied: AtomicU64::new(u64::MAX),
         }
     }
 
@@ -448,12 +459,14 @@ impl AppState {
         }
 
         // Rebuild accounts in profile order, only for currently open windows
+        let old_ids: std::collections::HashSet<u64> = accounts.iter().map(|w| w.window_id).collect();
         *accounts = profiles
             .iter()
             .filter_map(|p| {
                 windows.iter().find(|w| w.character_name.eq_ignore_ascii_case(&p.character_name)).cloned()
             })
             .collect();
+        let new_ids: std::collections::HashSet<u64> = accounts.iter().map(|w| w.window_id).collect();
 
         if !profiles.is_empty() && !profiles.iter().any(|p| p.is_principal) {
             profiles[0].is_principal = true;
@@ -461,6 +474,12 @@ impl AppState {
 
         drop(profiles);
         drop(accounts);
+
+        // Bump order version when windows appear, disappear, or any HWND changes (e.g. client restart)
+        #[cfg(target_os = "windows")]
+        if old_ids != new_ids {
+            self.taskbar_order_version.fetch_add(1, Ordering::Relaxed);
+        }
 
         if new_profiles_added {
             self.save();
@@ -551,6 +570,10 @@ impl AppState {
         drop(profiles);
         drop(accounts);
         self.save();
+
+        #[cfg(target_os = "windows")]
+        self.taskbar_order_version.fetch_add(1, Ordering::Relaxed);
+
         true
     }
 

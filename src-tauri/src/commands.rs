@@ -185,6 +185,19 @@ pub fn reorder_account(
     state: tauri::State<'_, Arc<AppState>>,
 ) -> Vec<AccountView> {
     state.reorder_account(&name, new_position);
+
+    #[cfg(target_os = "windows")]
+    if state.is_taskbar_ungroup_enabled() {
+        use crate::platform::windows::taskbar;
+        use std::sync::atomic::Ordering;
+        let windows = state.accounts.lock().unwrap().clone();
+        let cache = state.taskbar_aumid_cache.lock().unwrap();
+        taskbar::reorder_taskbar_buttons(&windows, &cache);
+        // Mark as applied so the next poll doesn't reorder a second time
+        let ver = state.taskbar_order_version.load(Ordering::Relaxed);
+        state.taskbar_order_version_applied.store(ver, Ordering::Relaxed);
+    }
+
     state.get_account_views()
 }
 
