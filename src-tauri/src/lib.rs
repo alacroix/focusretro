@@ -16,15 +16,6 @@ pub fn run() {
 
     #[allow(unused_mut)]
     let mut builder = tauri::Builder::default()
-        .setup(|app| {
-            app.handle().plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-                if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.show();
-                    let _ = window.set_focus();
-                }
-            }))?;
-            Ok(())
-        })
         .plugin(tauri_plugin_process::init());
 
     #[cfg(feature = "auto-update")]
@@ -107,6 +98,13 @@ pub fn run() {
             commands::set_tray_icon,
         ])
         .setup(|app| {
+            app.handle().plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                }
+            }))?;
+
             let config_path = app
                 .path()
                 .app_config_dir()?
@@ -126,6 +124,10 @@ pub fn run() {
 
             #[cfg(target_os = "windows")]
             setup_radial_window(app);
+
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+            }
 
             Ok(())
         })
