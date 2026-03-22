@@ -16,6 +16,15 @@ pub fn run() {
 
     #[allow(unused_mut)]
     let mut builder = tauri::Builder::default()
+        .setup(|app| {
+            app.handle().plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                }
+            }))?;
+            Ok(())
+        })
         .plugin(tauri_plugin_process::init());
 
     #[cfg(feature = "auto-update")]
