@@ -4,14 +4,13 @@ on:
   push:
     branches:
       - "**"
-    tags-ignore:
-      - "**"
     paths-ignore:
       - "docs/**"
 
 jobs:
   typecheck:
     runs-on: ubuntu-latest
+    if: "!startsWith(github.event.head_commit.message, ':bookmark:')"
 
     steps:
       - uses: actions/checkout@v4
@@ -37,6 +36,7 @@ jobs:
           - platform: windows-latest
 
     runs-on: ${{ matrix.platform }}
+    if: "!startsWith(github.event.head_commit.message, ':bookmark:')"
 
     steps:
       - uses: actions/checkout@v4
