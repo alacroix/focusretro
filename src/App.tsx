@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type { Update } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
@@ -70,38 +71,7 @@ function App() {
   const isWindows = navigator.userAgent.includes("Windows NT");
 
   useEffect(() => {
-    refreshAccounts().then(setAccounts);
-    checkPermissions().then((p) => {
-      setHasAccessibility(p.accessibility);
-      setHasScreenRecording(p.screen_recording);
-      setHasInputMonitoring(p.input_monitoring);
-      setPermissionsChecked(true);
-    });
-    getLanguage().then(async (lang) => {
-      if (lang && lang !== i18n.language) {
-        await i18n.changeLanguage(lang);
-      }
-      setLanguageReady(true);
-    });
-    getHotkeys().then(setHotkeys);
-    getShowDebug().then(setShowDebug);
-    if (isWindows) getTaskbarUngroupState().then(setTaskbarUngroup);
-    getTheme().then((t) => {
-      setThemeState(t);
-      applyThemeClass(t);
-    });
-    if (import.meta.env.VITE_UPDATER !== "false") {
-      getUpdateConsent().then(async (consent) => {
-        setUpdateConsentState(consent ?? null);
-        if (consent === null || consent === undefined) {
-          setShowConsentModal(true);
-        } else if (consent === true) {
-          const { check } = await import("@tauri-apps/plugin-updater");
-          check().then((u) => { if (u?.available) setPendingUpdate(u); }).catch(() => {});
-        }
-      });
-    }
-
+    // Event listeners don't go through the command system — register immediately.
     const unlistenAccounts = listen<AccountView[]>("accounts-updated", (e) => {
       setAccounts(e.payload);
     });
@@ -113,6 +83,42 @@ function App() {
     const unlistenFocus = listen<string>("focus-changed", (e) => {
       setFocusedName(e.payload);
     });
+
+    // All invoke() calls wait for backend setup() to complete.
+    // wait_for_ready suspends until AppState is managed and all init is done.
+    invoke("wait_for_ready").then(() => {
+      refreshAccounts().then(setAccounts);
+      checkPermissions().then((p) => {
+        setHasAccessibility(p.accessibility);
+        setHasScreenRecording(p.screen_recording);
+        setHasInputMonitoring(p.input_monitoring);
+        setPermissionsChecked(true);
+      });
+      getLanguage().then(async (lang) => {
+        if (lang && lang !== i18n.language) {
+          await i18n.changeLanguage(lang);
+        }
+        setLanguageReady(true);
+      });
+      getHotkeys().then(setHotkeys);
+      getShowDebug().then(setShowDebug);
+      if (isWindows) getTaskbarUngroupState().then(setTaskbarUngroup);
+      getTheme().then((t) => {
+        setThemeState(t);
+        applyThemeClass(t);
+      });
+      if (import.meta.env.VITE_UPDATER !== "false") {
+        getUpdateConsent().then(async (consent) => {
+          setUpdateConsentState(consent ?? null);
+          if (consent === null || consent === undefined) {
+            setShowConsentModal(true);
+          } else if (consent === true) {
+            const { check } = await import("@tauri-apps/plugin-updater");
+            check().then((u) => { if (u?.available) setPendingUpdate(u); }).catch(() => {});
+          }
+        });
+      }
+    }).catch((e) => console.error("[wait_for_ready] failed:", e));
 
     return () => {
       unlistenAccounts.then((f) => f());
@@ -146,12 +152,15 @@ function App() {
   // Render tray icon on mount and whenever autoswitch state changes
   useEffect(() => {
     let cancelled = false;
-    getAutoswitchState().then((active) => {
+    invoke("wait_for_ready").then(() => {
       if (cancelled) return;
-      renderTrayIcon(active)
-        .then((rgba) => setTrayIcon(rgba))
-        .catch(() => {});
-    });
+      getAutoswitchState().then((active) => {
+        if (cancelled) return;
+        renderTrayIcon(active)
+          .then((rgba) => setTrayIcon(rgba))
+          .catch(() => {});
+      });
+    }).catch(() => {});
     const unlisten = listen<boolean>("autoswitch-changed", (e) => {
       renderTrayIcon(e.payload)
         .then((rgba) => setTrayIcon(rgba))

@@ -2,8 +2,10 @@ mod commands;
 mod core;
 mod platform;
 mod radial;
+mod ready;
 mod state;
 
+use ready::BackendReady;
 use state::AppState;
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter, Manager};
@@ -14,8 +16,14 @@ pub fn run() {
     )
     .init();
 
+    // BackendReady is managed at builder level so it's available immediately —
+    // before WebView2 starts. The frontend awaits wait_for_ready() before calling
+    // any other command, eliminating the setup() race on Win10.
+    let backend_ready = Arc::new(BackendReady::new());
+
     #[allow(unused_mut)]
     let mut builder = tauri::Builder::default()
+        .manage(backend_ready)
         .plugin(tauri_plugin_process::init());
 
     #[cfg(feature = "auto-update")]
@@ -96,40 +104,16 @@ pub fn run() {
             commands::set_close_behavior_prompted,
             commands::apply_close,
             commands::set_tray_icon,
+            commands::wait_for_ready,
         ])
         .setup(|app| {
-            app.handle().plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-                if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.show();
-                    let _ = window.set_focus();
-                }
-            }))?;
-
-            let config_path = app
-                .path()
-                .app_config_dir()?
-                .join("config.json");
-
-            crate::state::migrate_config_if_needed(&config_path);
-
-            let app_state = Arc::new(AppState::new(config_path));
-            app.manage(app_state);
-
-            setup_tray(app)?;
-            start_hotkey_listener(app);
-            core::autoswitch::setup(app)?;
-
-            #[cfg(target_os = "macos")]
-            setup_radial_panel(app);
-
-            #[cfg(target_os = "windows")]
-            setup_radial_window(app);
-
-            if let Some(window) = app.get_webview_window("main") {
-                let _ = window.show();
-            }
-
-            Ok(())
+            // Always signal BackendReady on exit — even if setup() returns Err — so
+            // any pending wait_for_ready future is unblocked rather than hanging forever.
+            // (The process will panic shortly after on Err, but WebView2 runs out-of-process.)
+            let ready = app.state::<Arc<BackendReady>>().inner().clone();
+            let result = do_setup(app);
+            ready.signal();
+            result
         })
         .build(tauri::generate_context!())
         .expect("error while building FocusRetro")
@@ -170,6 +154,41 @@ fn start_hotkey_listener(app: &tauri::App) {
         let _ = (handle, state);
         log::warn!("[Hotkeys] Global hotkeys not available on this platform");
     }
+}
+
+fn do_setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
+    let config_path = app
+        .path()
+        .app_config_dir()?
+        .join("config.json");
+
+    crate::state::migrate_config_if_needed(&config_path);
+
+    let app_state = Arc::new(AppState::new(config_path));
+    app.manage(app_state);
+
+    app.handle().plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+        if let Some(window) = app.get_webview_window("main") {
+            let _ = window.show();
+            let _ = window.set_focus();
+        }
+    }))?;
+
+    setup_tray(app)?;
+    start_hotkey_listener(app);
+    core::autoswitch::setup(app)?;
+
+    #[cfg(target_os = "macos")]
+    setup_radial_panel(app);
+
+    #[cfg(target_os = "windows")]
+    setup_radial_window(app);
+
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.show();
+    }
+
+    Ok(())
 }
 
 #[cfg(target_os = "windows")]

@@ -1,9 +1,25 @@
 use crate::core::accounts;
 use crate::platform::{self, PermissionStatus};
+use crate::ready::BackendReady;
 use crate::state::{AccountView, AppState, HotkeyBinding, StoredMessage, TraceEntry};
 use serde::Serialize;
+use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use tauri::{Emitter, Manager};
+
+#[tauri::command]
+pub async fn wait_for_ready(ready: tauri::State<'_, Arc<BackendReady>>) -> Result<(), ()> {
+    // Reserve the waker slot BEFORE checking the flag to close the TOCTOU window:
+    // if signal() fires between load() and notified().await, the notification
+    // would be lost. With notified() called first, it captures the signal even
+    // if it arrives between the load check and the await.
+    let notified = ready.notify.notified();
+    if ready.is_ready.load(Ordering::Acquire) {
+        return Ok(());
+    }
+    notified.await;
+    Ok(())
+}
 
 #[derive(Serialize, Clone)]
 pub(crate) struct WheelPos {
