@@ -12,8 +12,8 @@ use windows::Win32::Graphics::Dwm::{DwmSetWindowAttribute, DWMWA_TRANSITIONS_FOR
 use windows::Win32::Graphics::Gdi::{GetMonitorInfoA, MonitorFromWindow, MONITORINFO, MONITOR_DEFAULTTONEAREST};
 use windows::Win32::UI::WindowsAndMessaging::{
     BringWindowToTop, EnumWindows, GetForegroundWindow, GetWindowTextW, GetWindowThreadProcessId,
-    IsIconic, IsWindowVisible, IsZoomed, SetForegroundWindow, SetWindowPos, ShowWindow, SW_MAXIMIZE, SW_RESTORE,
-    SWP_NOACTIVATE, SWP_NOZORDER,
+    IsIconic, IsWindowVisible, IsZoomed, MSG, PeekMessageW, PM_NOREMOVE, SetForegroundWindow,
+    SetWindowPos, ShowWindow, SW_MAXIMIZE, SW_RESTORE, SWP_NOACTIVATE, SWP_NOZORDER,
 };
 
 pub fn get_foreground_window_id() -> u64 {
@@ -103,6 +103,15 @@ impl WindowManager for WinWindowManager {
             if IsIconic(hwnd).as_bool() {
                 let _ = ShowWindow(hwnd, SW_RESTORE);
             }
+
+            // Ensure this thread has a Win32 message queue before calling AttachThreadInput.
+            // AttachThreadInput requires both threads to have a queue; on threads that never
+            // called PeekMessage/GetMessage (e.g. the poll-db notification thread on Win10)
+            // the queue does not exist yet and AttachThreadInput fails silently, causing
+            // SetFocus to have no effect and leaving the window focused-but-unresponsive.
+            // PeekMessage with PM_NOREMOVE on a null HWND creates the queue lazily if absent.
+            let mut _msg = MSG::default();
+            let _ = PeekMessageW(&mut _msg, None, 0, 0, PM_NOREMOVE);
 
             // Attach our thread to both the foreground and target threads:
             //   cur → fg_tid  : makes SetForegroundWindow bypass focus-stealing prevention
