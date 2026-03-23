@@ -1,6 +1,6 @@
 [package]
 name = "focusretro"
-version = "0.5.0"
+version = "0.5.1"
 description = "Auto-focus Dofus Retro game windows on turn start"
 authors = ["FocusRetro Contributors"]
 edition = "2021"
