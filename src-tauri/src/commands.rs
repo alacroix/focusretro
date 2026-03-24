@@ -278,6 +278,16 @@ pub fn set_principal(name: String, state: tauri::State<'_, Arc<AppState>>) -> Ve
 }
 
 #[tauri::command]
+pub fn set_account_skipped(
+    name: String,
+    skipped: bool,
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Vec<AccountView> {
+    state.set_skipped(&name, skipped);
+    state.get_account_views()
+}
+
+#[tauri::command]
 pub fn update_account_profile(
     name: String,
     color: Option<String>,
