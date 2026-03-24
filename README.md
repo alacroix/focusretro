@@ -74,6 +74,19 @@ npm run tauri build
 
 The built application will be in `src-tauri/target/release/bundle/`.
 
+### Offline variant
+
+The offline variant disables the auto-updater entirely — no outbound HTTP connections at all:
+
+```bash
+VITE_UPDATER=false npx tauri build --config src-tauri/offline.conf.json -- --no-default-features
+```
+
+Key differences vs the standard build:
+- `offline.conf.json` sets `plugins.updater = null` and `bundle.createUpdaterArtifacts = false`
+- `--no-default-features` disables the `auto_update` Cargo feature (removes `tauri-plugin-updater`)
+- `VITE_UPDATER=false` hides update-related UI in the frontend
+
 ## Permissions
 
 ### macOS
