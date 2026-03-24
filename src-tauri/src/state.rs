@@ -5,6 +5,13 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct TraySnapshot {
+    pub is_active: bool,
+    pub count: usize,
+    pub lang: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StoredMessage {
     pub receiver: String,
@@ -246,6 +253,7 @@ pub struct AppState {
     pub update_check_consent: Mutex<Option<bool>>,
     pub close_to_tray: AtomicBool,
     pub close_behavior_prompted: AtomicBool,
+    pub last_tray_snapshot: Mutex<Option<TraySnapshot>>,
     #[cfg(target_os = "windows")]
     pub taskbar_ungroup_enabled: AtomicBool,
     #[cfg(target_os = "windows")]
@@ -304,6 +312,7 @@ impl AppState {
             update_check_consent: Mutex::new(prefs.update_check_consent),
             close_to_tray: AtomicBool::new(prefs.close_to_tray),
             close_behavior_prompted: AtomicBool::new(prefs.close_behavior_prompted),
+            last_tray_snapshot: Mutex::new(None),
             #[cfg(target_os = "windows")]
             taskbar_ungroup_enabled: AtomicBool::new(prefs.taskbar_ungroup_enabled),
             #[cfg(target_os = "windows")]
@@ -666,14 +675,6 @@ impl AppState {
             })
             .or_else(|| accounts.first())
             .cloned()
-    }
-
-    pub fn get_principal_name(&self) -> Option<String> {
-        let profiles = self.profiles.lock();
-        profiles
-            .iter()
-            .find(|p| p.is_principal)
-            .map(|p| p.character_name.clone())
     }
 
     pub fn account_count(&self) -> usize {

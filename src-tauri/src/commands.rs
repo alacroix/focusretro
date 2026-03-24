@@ -96,6 +96,7 @@ pub fn toggle_autoswitch(handle: tauri::AppHandle, state: tauri::State<'_, Arc<A
     let new_state = !state.is_autoswitch_enabled();
     state.set_autoswitch(new_state);
     let _ = handle.emit("autoswitch-changed", new_state);
+    crate::update_tray_display(&handle, &state);
     new_state
 }
 

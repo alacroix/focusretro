@@ -6,7 +6,7 @@ mod ready;
 mod state;
 
 use ready::BackendReady;
-use state::AppState;
+use state::{AppState, TraySnapshot};
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter, Manager};
 
@@ -237,58 +237,81 @@ fn setup_radial_panel(app: &tauri::App) {
     }
 }
 
+fn tray_t(lang: &str, key: &str) -> &'static str {
+    match (lang, key) {
+        ("fr", "autoswitch") => "Autoswitch",
+        ("fr", "show_window") => "Afficher la fenêtre",
+        ("fr", "quit") => "Quitter",
+        ("fr", "tooltip_active") => "FocusRetro - Actif",
+        ("fr", "tooltip_paused") => "FocusRetro - En pause",
+
+        ("es", "autoswitch") => "Autoswitch",
+        ("es", "show_window") => "Mostrar ventana",
+        ("es", "quit") => "Salir",
+        ("es", "tooltip_active") => "FocusRetro - Activo",
+        ("es", "tooltip_paused") => "FocusRetro - En pausa",
+
+        (_, "autoswitch") => "Autoswitch",
+        (_, "show_window") => "Show Window",
+        (_, "quit") => "Quit",
+        (_, "tooltip_active") => "FocusRetro - Active",
+        (_, "tooltip_paused") => "FocusRetro - Paused",
+        _ => "",
+    }
+}
+
+fn tray_accounts_label(lang: &str, count: usize) -> String {
+    match lang {
+        "fr" => match count {
+            0 => "Aucun compte détecté".to_string(),
+            1 => format!("{} compte détecté", count),
+            _ => format!("{} comptes détectés", count),
+        },
+        "es" => match count {
+            0 => "Ninguna cuenta detectada".to_string(),
+            1 => format!("{} cuenta detectada", count),
+            _ => format!("{} cuentas detectadas", count),
+        },
+        _ => match count {
+            0 => "No accounts detected".to_string(),
+            1 => format!("{} account detected", count),
+            _ => format!("{} accounts detected", count),
+        },
+    }
+}
+
 fn setup_tray(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
-    use tauri::menu::{MenuBuilder, MenuItemBuilder};
     use tauri::tray::TrayIconBuilder;
 
     let state = app.state::<Arc<AppState>>().inner().clone();
     let is_active = state.is_autoswitch_enabled();
-
-    let principal_label = state
-        .get_principal_name()
-        .map(|n| format!("{} (principal)", n))
-        .unwrap_or_else(|| "No principal".into());
     let count = state.account_count();
-    let count_label = format!("{} accounts detected", count);
+    let lang = state.get_language();
 
-    let principal_item = MenuItemBuilder::with_id("principal_info", &principal_label)
-        .enabled(false)
-        .build(app)?;
-    let count_item = MenuItemBuilder::with_id("count_info", &count_label)
-        .enabled(false)
-        .build(app)?;
-
-    let toggle_label = if is_active {
-        "Autoswitch ON"
+    let count_label = tray_accounts_label(&lang, count);
+    let tooltip_key = if is_active {
+        "tooltip_active"
     } else {
-        "Autoswitch OFF"
+        "tooltip_paused"
     };
-    let toggle_item = MenuItemBuilder::with_id("toggle", toggle_label).build(app)?;
-    let show_item = MenuItemBuilder::with_id("show", "Show Window").build(app)?;
-    let quit_item = MenuItemBuilder::with_id("quit", "Quit").build(app)?;
+    let menu = build_tray_menu(
+        app.handle(),
+        &count_label,
+        tray_t(&lang, "autoswitch"),
+        is_active,
+        tray_t(&lang, "show_window"),
+        tray_t(&lang, "quit"),
+    )?;
 
-    let menu = MenuBuilder::new(app)
-        .item(&principal_item)
-        .item(&count_item)
-        .separator()
-        .item(&toggle_item)
-        .separator()
-        .item(&show_item)
-        .item(&quit_item)
-        .build()?;
-
-    let icon = tauri::include_image!("icons/32x32.png");
-
-    let tooltip = if is_active {
-        "FocusRetro — Active"
-    } else {
-        "FocusRetro — Paused"
-    };
+    let icon = app
+        .default_window_icon()
+        .ok_or("no default window icon")?
+        .clone();
 
     let _tray = TrayIconBuilder::with_id("main")
         .icon(icon)
         .menu(&menu)
-        .tooltip(tooltip)
+        .tooltip(tray_t(&lang, tooltip_key))
         .on_menu_event({
             let handle = app.handle().clone();
             move |app, event| match event.id().as_ref() {
@@ -323,51 +346,62 @@ pub(crate) fn update_tray_display(handle: &AppHandle, state: &AppState) {
     };
 
     let is_active = state.is_autoswitch_enabled();
-
-    let tooltip = if is_active {
-        "FocusRetro — Active"
-    } else {
-        "FocusRetro — Paused"
-    };
-    let _ = tray.set_tooltip(Some(tooltip));
-
-    let principal_label = state
-        .get_principal_name()
-        .map(|n| format!("{} (principal)", n))
-        .unwrap_or_else(|| "No principal".into());
     let count = state.account_count();
-    let count_label = format!("{} accounts detected", count);
-    let toggle_label = if is_active {
-        "Autoswitch ON"
-    } else {
-        "Autoswitch OFF"
+    let lang = state.get_language();
+    let snapshot = TraySnapshot {
+        is_active,
+        count,
+        lang: lang.clone(),
     };
 
-    if let Ok(menu) = build_tray_menu(handle, &principal_label, &count_label, toggle_label) {
+    {
+        let mut last = state.last_tray_snapshot.lock();
+        if last.as_ref() == Some(&snapshot) {
+            return;
+        }
+        *last = Some(snapshot);
+    }
+
+    let tooltip_key = if is_active {
+        "tooltip_active"
+    } else {
+        "tooltip_paused"
+    };
+    let _ = tray.set_tooltip(Some(tray_t(&lang, tooltip_key)));
+
+    let count_label = tray_accounts_label(&lang, count);
+    if let Ok(menu) = build_tray_menu(
+        handle,
+        &count_label,
+        tray_t(&lang, "autoswitch"),
+        is_active,
+        tray_t(&lang, "show_window"),
+        tray_t(&lang, "quit"),
+    ) {
         let _ = tray.set_menu(Some(menu));
     }
 }
 
 fn build_tray_menu(
     handle: &AppHandle,
-    principal_label: &str,
     count_label: &str,
-    toggle_label: &str,
+    autoswitch_label: &str,
+    is_active: bool,
+    show_label: &str,
+    quit_label: &str,
 ) -> Result<tauri::menu::Menu<tauri::Wry>, Box<dyn std::error::Error>> {
-    use tauri::menu::{MenuBuilder, MenuItemBuilder};
+    use tauri::menu::{CheckMenuItemBuilder, MenuBuilder, MenuItemBuilder};
 
-    let principal_item = MenuItemBuilder::with_id("principal_info", principal_label)
-        .enabled(false)
-        .build(handle)?;
     let count_item = MenuItemBuilder::with_id("count_info", count_label)
         .enabled(false)
         .build(handle)?;
-    let toggle_item = MenuItemBuilder::with_id("toggle", toggle_label).build(handle)?;
-    let show_item = MenuItemBuilder::with_id("show", "Show Window").build(handle)?;
-    let quit_item = MenuItemBuilder::with_id("quit", "Quit").build(handle)?;
+    let toggle_item = CheckMenuItemBuilder::with_id("toggle", autoswitch_label)
+        .checked(is_active)
+        .build(handle)?;
+    let show_item = MenuItemBuilder::with_id("show", show_label).build(handle)?;
+    let quit_item = MenuItemBuilder::with_id("quit", quit_label).build(handle)?;
 
     let menu = MenuBuilder::new(handle)
-        .item(&principal_item)
         .item(&count_item)
         .separator()
         .item(&toggle_item)
@@ -377,4 +411,76 @@ fn build_tray_menu(
         .build()?;
 
     Ok(menu)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tray_t_returns_english_fallback() {
+        assert_eq!(tray_t("en", "autoswitch"), "Autoswitch");
+        assert_eq!(tray_t("en", "show_window"), "Show Window");
+        assert_eq!(tray_t("en", "quit"), "Quit");
+        assert_eq!(tray_t("en", "tooltip_active"), "FocusRetro - Active");
+        assert_eq!(tray_t("en", "tooltip_paused"), "FocusRetro - Paused");
+    }
+
+    #[test]
+    fn tray_t_returns_french() {
+        assert_eq!(tray_t("fr", "show_window"), "Afficher la fenêtre");
+        assert_eq!(tray_t("fr", "quit"), "Quitter");
+        assert_eq!(tray_t("fr", "tooltip_active"), "FocusRetro - Actif");
+        assert_eq!(tray_t("fr", "tooltip_paused"), "FocusRetro - En pause");
+    }
+
+    #[test]
+    fn tray_t_returns_spanish() {
+        assert_eq!(tray_t("es", "show_window"), "Mostrar ventana");
+        assert_eq!(tray_t("es", "quit"), "Salir");
+        assert_eq!(tray_t("es", "tooltip_active"), "FocusRetro - Activo");
+        assert_eq!(tray_t("es", "tooltip_paused"), "FocusRetro - En pausa");
+    }
+
+    #[test]
+    fn tray_accounts_label_zero() {
+        assert_eq!(tray_accounts_label("en", 0), "No accounts detected");
+        assert_eq!(tray_accounts_label("fr", 0), "Aucun compte détecté");
+        assert_eq!(tray_accounts_label("es", 0), "Ninguna cuenta detectada");
+    }
+
+    #[test]
+    fn tray_accounts_label_one() {
+        assert_eq!(tray_accounts_label("en", 1), "1 account detected");
+        assert_eq!(tray_accounts_label("fr", 1), "1 compte détecté");
+        assert_eq!(tray_accounts_label("es", 1), "1 cuenta detectada");
+    }
+
+    #[test]
+    fn tray_accounts_label_many() {
+        assert_eq!(tray_accounts_label("en", 3), "3 accounts detected");
+        assert_eq!(tray_accounts_label("fr", 3), "3 comptes détectés");
+        assert_eq!(tray_accounts_label("es", 3), "3 cuentas detectadas");
+    }
+
+    #[test]
+    fn tray_snapshot_eq() {
+        let a = TraySnapshot {
+            is_active: true,
+            count: 2,
+            lang: "en".into(),
+        };
+        let b = TraySnapshot {
+            is_active: true,
+            count: 2,
+            lang: "en".into(),
+        };
+        let c = TraySnapshot {
+            is_active: false,
+            count: 2,
+            lang: "en".into(),
+        };
+        assert_eq!(a, b);
+        assert_ne!(a, c);
+    }
 }
