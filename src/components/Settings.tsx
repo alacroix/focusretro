@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { emit } from "@tauri-apps/api/event";
 import { getVersion } from "@tauri-apps/api/app";
 import {
   getAutoswitchState,
@@ -225,6 +224,7 @@ function Settings({
   onCheckUpdate,
   taskbarUngroup,
   onToggleTaskbarUngroup,
+  onHotkeysChange,
 }: {
   showDebug: boolean;
   onToggleDebug: (v: boolean) => void;
@@ -235,6 +235,7 @@ function Settings({
   onCheckUpdate: () => Promise<boolean>;
   taskbarUngroup: boolean;
   onToggleTaskbarUngroup: (v: boolean) => void;
+  onHotkeysChange?: (bindings: HotkeyBinding[]) => void;
 }) {
   const { t, i18n } = useTranslation();
   const [autoswitch, setAutoswitch] = useState(true);
@@ -293,7 +294,7 @@ function Settings({
     const save = (key: string, cmd: boolean, alt: boolean, shift: boolean, ctrl: boolean) => {
       setHotkey(recordingAction, key, cmd, alt, shift, ctrl).then((newHotkeys) => {
         setHotkeys(newHotkeys);
-        emit("hotkeys-updated", newHotkeys);
+        onHotkeysChange?.(newHotkeys);
       });
       setRecordingAction(null);
     };
@@ -465,7 +466,7 @@ function Settings({
           onClick={() => {
             resetHotkeys().then((newHotkeys) => {
               setHotkeys(newHotkeys);
-              emit("hotkeys-updated", newHotkeys);
+              onHotkeysChange?.(newHotkeys);
             });
           }}
           className="text-[11px] text-gray-400 hover:text-gray-600 dark:text-gray-600 dark:hover:text-gray-400 transition-colors cursor-pointer"

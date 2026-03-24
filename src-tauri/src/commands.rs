@@ -7,6 +7,44 @@ use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use tauri::{Emitter, Manager};
 
+#[derive(Serialize, Clone)]
+pub struct InitialState {
+    pub accounts: Vec<AccountView>,
+    pub permissions: PermissionStatus,
+    pub language: String,
+    pub hotkeys: Vec<HotkeyBinding>,
+    pub show_debug: bool,
+    pub theme: String,
+    pub update_consent: Option<bool>,
+    pub taskbar_ungroup: bool,
+}
+
+#[tauri::command]
+pub fn get_initial_state(state: tauri::State<'_, Arc<AppState>>) -> InitialState {
+    let windows = accounts::detect_accounts();
+    state.update_accounts(windows);
+
+    #[cfg(target_os = "windows")]
+    let taskbar_ungroup = state.is_taskbar_ungroup_enabled();
+    #[cfg(not(target_os = "windows"))]
+    let taskbar_ungroup = false;
+
+    InitialState {
+        accounts: state.get_account_views(),
+        permissions: PermissionStatus {
+            accessibility: platform::check_accessibility_permission(),
+            screen_recording: platform::check_screen_recording_permission(),
+            input_monitoring: platform::check_input_monitoring_permission(),
+        },
+        language: state.get_language(),
+        hotkeys: state.get_hotkeys(),
+        show_debug: state.is_show_debug(),
+        theme: state.get_theme(),
+        update_consent: state.get_update_consent(),
+        taskbar_ungroup,
+    }
+}
+
 #[tauri::command]
 pub async fn wait_for_ready(ready: tauri::State<'_, Arc<BackendReady>>) -> Result<(), ()> {
     // Reserve the waker slot BEFORE checking the flag to close the TOCTOU window:

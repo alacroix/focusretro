@@ -32,6 +32,21 @@ export interface StoredMessage {
   timestamp: number;
 }
 
+export interface InitialState {
+  accounts: AccountView[];
+  permissions: PermissionStatus;
+  language: string;
+  hotkeys: HotkeyBinding[];
+  show_debug: boolean;
+  theme: string;
+  update_consent: boolean | null;
+  taskbar_ungroup: boolean;
+}
+
+export function getInitialState(): Promise<InitialState> {
+  return invoke("get_initial_state");
+}
+
 export function listAccounts(): Promise<AccountView[]> {
   return invoke("list_accounts");
 }

@@ -105,6 +105,7 @@ pub fn run() {
             commands::apply_close,
             commands::set_tray_icon,
             commands::wait_for_ready,
+            commands::get_initial_state,
         ])
         .setup(|app| {
             // Always signal BackendReady on exit — even if setup() returns Err — so

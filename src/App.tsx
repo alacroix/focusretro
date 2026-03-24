@@ -13,18 +13,13 @@ import {
   AccountView,
   HotkeyBinding,
   checkPermissions,
-  getLanguage,
-  getHotkeys,
   refreshAccounts,
-  getShowDebug,
-  getTheme,
+  getInitialState,
   setTheme,
-  getUpdateConsent,
   setUpdateConsent,
   setCloseTotray as setCloseTotrayCmd,
   setCloseBehaviorPrompted,
   applyClose,
-  getTaskbarUngroupState,
   applyWindowIcon,
   getAutoswitchState,
   setTrayIcon,
@@ -78,66 +73,67 @@ function App() {
 
   useEffect(() => {
     // Event listeners don't go through the command system — register immediately.
-    const unlistenAccounts = listen<AccountView[]>("accounts-updated", (e) => {
+    let unlistenAccounts: (() => void) | null = null;
+    let cancelledAccounts = false;
+    listen<AccountView[]>("accounts-updated", (e) => {
       setAccounts(e.payload);
+    }).then((fn) => {
+      if (cancelledAccounts) fn();
+      else unlistenAccounts = fn;
     });
 
-    const unlistenHotkeys = listen<HotkeyBinding[]>("hotkeys-updated", (e) => {
-      setHotkeys(e.payload);
-    });
-
-    const unlistenFocus = listen<string>("focus-changed", (e) => {
+    let unlistenFocus: (() => void) | null = null;
+    let cancelledFocus = false;
+    listen<string>("focus-changed", (e) => {
       setFocusedName(e.payload);
+    }).then((fn) => {
+      if (cancelledFocus) fn();
+      else unlistenFocus = fn;
     });
 
     // All invoke() calls wait for backend setup() to complete.
     // wait_for_ready suspends until AppState is managed and all init is done.
     invoke("wait_for_ready")
-      .then(() => {
-        refreshAccounts().then(setAccounts);
-        checkPermissions().then((p) => {
-          setHasAccessibility(p.accessibility);
-          setHasScreenRecording(p.screen_recording);
-          setHasInputMonitoring(p.input_monitoring);
-          setPermissionsChecked(true);
-        });
-        getLanguage().then(async (lang) => {
-          if (lang && lang !== i18n.language) {
-            await i18n.changeLanguage(lang);
-          }
-          setLanguageReady(true);
-        });
-        getHotkeys().then(setHotkeys);
-        getShowDebug().then(setShowDebug);
-        if (isWindows) getTaskbarUngroupState().then(setTaskbarUngroup);
-        getTheme().then((t) => {
-          setThemeState(t);
-          applyThemeClass(t);
-        });
+      .then(() => getInitialState())
+      .then(async (s) => {
+        setAccounts(s.accounts);
+        setHasAccessibility(s.permissions.accessibility);
+        setHasScreenRecording(s.permissions.screen_recording);
+        setHasInputMonitoring(s.permissions.input_monitoring);
+        setPermissionsChecked(true);
+        setHotkeys(s.hotkeys);
+        setShowDebug(s.show_debug);
+        if (isWindows) setTaskbarUngroup(s.taskbar_ungroup);
+        setThemeState(s.theme);
+        applyThemeClass(s.theme);
+        if (s.language && s.language !== i18n.language) {
+          await i18n.changeLanguage(s.language);
+        }
+        setLanguageReady(true);
         if (import.meta.env.VITE_UPDATER !== "false") {
-          getUpdateConsent().then(async (consent) => {
-            setUpdateConsentState(consent ?? null);
-            if (consent === null || consent === undefined) {
-              setShowConsentModal(true);
-            } else if (consent === true) {
-              const { check } = await import("@tauri-apps/plugin-updater");
-              check()
-                .then((u) => {
-                  if (u) {
-                    setPendingUpdate(u);
-                  }
-                })
-                .catch(() => {});
-            }
-          });
+          const consent = s.update_consent ?? null;
+          setUpdateConsentState(consent);
+          if (consent === null) {
+            setShowConsentModal(true);
+          } else if (consent === true) {
+            const { check } = await import("@tauri-apps/plugin-updater");
+            check()
+              .then((u) => {
+                if (u) {
+                  setPendingUpdate(u);
+                }
+              })
+              .catch(() => {});
+          }
         }
       })
-      .catch((e) => console.error("[wait_for_ready] failed:", e));
+      .catch((e) => console.error("[get_initial_state] failed:", e));
 
     return () => {
-      unlistenAccounts.then((f) => f());
-      unlistenHotkeys.then((f) => f());
-      unlistenFocus.then((f) => f());
+      cancelledAccounts = true;
+      unlistenAccounts?.();
+      cancelledFocus = true;
+      unlistenFocus?.();
     };
   }, []);
 
@@ -189,22 +185,32 @@ function App() {
       .then((active) => updateIcon(active as boolean))
       .catch(() => {});
 
-    const unlisten = listen<boolean>("autoswitch-changed", (e) => {
+    let unlisten: (() => void) | null = null;
+    listen<boolean>("autoswitch-changed", (e) => {
       updateIcon(e.payload);
+    }).then((fn) => {
+      if (cancelled) fn();
+      else unlisten = fn;
     });
     return () => {
       cancelled = true;
-      unlisten.then((f) => f());
+      unlisten?.();
     };
   }, []);
 
   useEffect(() => {
-    const unlisten = listen<string>("close-requested", (event) => {
+    let unlisten: (() => void) | null = null;
+    let cancelled = false;
+    listen<string>("close-requested", (event) => {
       setCloseOs(event.payload);
       setShowCloseModal(true);
+    }).then((fn) => {
+      if (cancelled) fn();
+      else unlisten = fn;
     });
     return () => {
-      unlisten.then((fn) => fn());
+      cancelled = true;
+      unlisten?.();
     };
   }, []);
 
@@ -513,6 +519,7 @@ function App() {
             onCheckUpdate={handleCheckUpdate}
             taskbarUngroup={taskbarUngroup}
             onToggleTaskbarUngroup={setTaskbarUngroup}
+            onHotkeysChange={setHotkeys}
           />
         )}
         {tab === "debug" && <DebugPanel />}
