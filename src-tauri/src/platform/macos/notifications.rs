@@ -43,16 +43,14 @@ extern "C" {
     fn CFArrayGetValueAtIndex(array: *const c_void, idx: isize) -> *const c_void;
 }
 
-/// RAII guard that calls CFRelease on drop.
-/// Use for CF objects obtained via Copy rule (AXUIElementCopyAttributeValue,
+/// RAII guard for CF objects obtained via Copy rule (AXUIElementCopyAttributeValue,
 /// AXUIElementCopyActionNames, etc.) where no typed RAII wrapper is available.
-struct CfRelease(*const c_void);
-impl Drop for CfRelease {
-    fn drop(&mut self) {
-        if !self.0.is_null() {
-            unsafe { CFRelease(self.0) }
+fn cf_guard(ptr: *const c_void) -> impl Drop {
+    crate::platform::OnDrop::new(move || {
+        if !ptr.is_null() {
+            unsafe { CFRelease(ptr) }
         }
-    }
+    })
 }
 
 struct CallbackContext {
@@ -141,7 +139,7 @@ unsafe fn find_banner(element: AXUIElementRef) -> Option<AXUIElementRef> {
     if err != K_AX_SUCCESS || children_value.is_null() {
         return None;
     }
-    let _guard = CfRelease(children_value as *const c_void);
+    let _guard = cf_guard(children_value as *const c_void);
     let count = CFArrayGetCount(children_value as *const c_void);
     for i in 0..count {
         let child = CFArrayGetValueAtIndex(children_value as *const c_void, i) as AXUIElementRef;
@@ -161,7 +159,7 @@ unsafe fn has_action(element: AXUIElementRef, action_name: &str) -> bool {
     if err != K_AX_SUCCESS || actions.is_null() {
         return false;
     }
-    let _guard = CfRelease(actions as *const c_void);
+    let _guard = cf_guard(actions as *const c_void);
     let count = CFArrayGetCount(actions as *const c_void);
     for i in 0..count {
         let name = CFArrayGetValueAtIndex(actions as *const c_void, i);
@@ -195,7 +193,7 @@ unsafe fn collect_text(element: AXUIElementRef) -> Vec<String> {
     );
 
     if err == K_AX_SUCCESS && !children_value.is_null() {
-        let _guard = CfRelease(children_value as *const c_void);
+        let _guard = cf_guard(children_value as *const c_void);
         let count = CFArrayGetCount(children_value as *const c_void);
         for i in 0..count {
             let child =
