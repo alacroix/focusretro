@@ -19,7 +19,7 @@ use windows::{
         },
         Storage::EnhancedStorage::PKEY_AppUserModel_ID,
         System::Com::StructuredStorage::PROPVARIANT,
-        System::Com::{CoInitializeEx, COINIT_MULTITHREADED},
+        System::Com::{CoInitializeEx, CoUninitialize, COINIT_MULTITHREADED},
         UI::Shell::PropertiesSystem::{IPropertyStore, SHGetPropertyStoreForWindow},
         UI::WindowsAndMessaging::{
             CreateIconIndirect, DestroyIcon, SendMessageW, HICON, ICONINFO, ICON_BIG, ICON_SMALL,
@@ -27,6 +27,18 @@ use windows::{
         },
     },
 };
+
+/// Initializes COM on the current thread and returns a guard that calls
+/// CoUninitialize on drop. Returns None if COM was already initialized with a
+/// different threading model (RPC_E_CHANGED_MODE) — in that case no cleanup needed.
+#[cfg(target_os = "windows")]
+fn com_init() -> Option<impl Drop> {
+    let hr = unsafe { CoInitializeEx(None, COINIT_MULTITHREADED) };
+    // S_OK (0) or S_FALSE (1): we initialized or re-entered — must uninit on drop.
+    // Negative HRESULT (e.g. RPC_E_CHANGED_MODE): already initialized differently — skip.
+    hr.is_ok()
+        .then(|| crate::platform::OnDrop::new(|| unsafe { CoUninitialize() }))
+}
 
 /// Converts a flat RGBA byte slice (size×size pixels) into a Windows HICON.
 /// Caller owns the returned HICON and must call DestroyIcon when done.
@@ -99,7 +111,7 @@ pub(crate) unsafe fn rgba_to_hicon(rgba: &[u8], size: u32) -> anyhow::Result<HIC
 /// to group this window separately from other Dofus windows.
 #[cfg(target_os = "windows")]
 pub(crate) unsafe fn set_window_aumid(hwnd: HWND, character_name: &str) -> anyhow::Result<()> {
-    let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
+    let _com = com_init();
 
     let store: IPropertyStore = SHGetPropertyStoreForWindow(hwnd)
         .map_err(|e| anyhow::anyhow!("SHGetPropertyStoreForWindow: {e:?}"))?;
@@ -205,10 +217,10 @@ pub fn reset_taskbar_identities(
     if aumid_cache.is_empty() {
         return;
     }
+    let _com = com_init();
     for window in windows {
         let hwnd = HWND(window.window_id as usize as *mut _);
         unsafe {
-            let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
             if let Ok(store) = SHGetPropertyStoreForWindow::<IPropertyStore>(hwnd) {
                 let _ = store.SetValue(&PKEY_AppUserModel_ID, &PROPVARIANT::default());
                 let _ = store.Commit();
@@ -269,9 +281,8 @@ pub fn reorder_taskbar_buttons(windows_in_order: &[GameWindow], aumid_cache: &Ha
         return;
     }
 
+    let _com = com_init();
     unsafe {
-        let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
-
         let taskbar_list: ITaskbarList =
             match CoCreateInstance(&CLSID_TASKBAR_LIST, None, CLSCTX_INPROC_SERVER) {
                 Ok(tl) => tl,

@@ -11,7 +11,7 @@ static RE_TOAST_TEXT: LazyLock<Regex> =
 use windows::core::HSTRING;
 use windows::Foundation::TypedEventHandler;
 use windows::Win32::Foundation::{LPARAM, WPARAM};
-use windows::Win32::System::Com::{CoInitializeEx, COINIT_APARTMENTTHREADED};
+use windows::Win32::System::Com::{CoInitializeEx, CoUninitialize, COINIT_APARTMENTTHREADED};
 use windows::Win32::System::Threading::GetCurrentThreadId;
 use windows::Win32::UI::WindowsAndMessaging::{PostThreadMessageW, WM_QUIT};
 use windows::UI::Notifications::Management::{
@@ -222,13 +222,13 @@ impl NotificationListener for WinNotificationListener {
         let callback = Arc::new(SyncCallback(on_notification));
 
         std::thread::spawn(move || {
-            unsafe {
-                let hr = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
-                if hr.is_err() {
-                    error!("[WinNotif] CoInitializeEx failed: {:?}", hr);
-                    return;
-                }
+            let hr = unsafe { CoInitializeEx(None, COINIT_APARTMENTTHREADED) };
+            if hr.is_err() {
+                error!("[WinNotif] CoInitializeEx failed: {:?}", hr);
+                return;
             }
+            // Guard covers all return paths in this thread closure.
+            let _com = crate::platform::OnDrop::new(|| unsafe { CoUninitialize() });
 
             let tid = unsafe { GetCurrentThreadId() };
             {

@@ -14,12 +14,48 @@ use windows::Win32::UI::Input::KeyboardAndMouse::{
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     BringWindowToTop, EnumWindows, GetForegroundWindow, GetWindowTextW, GetWindowThreadProcessId,
-    IsIconic, IsWindowVisible, IsZoomed, PeekMessageW, SetForegroundWindow, SetWindowPos,
+    IsIconic, IsWindow, IsWindowVisible, IsZoomed, PeekMessageW, SetForegroundWindow, SetWindowPos,
     ShowWindow, MSG, PM_NOREMOVE, SWP_NOACTIVATE, SWP_NOZORDER, SW_MAXIMIZE, SW_RESTORE,
 };
 
 pub fn get_foreground_window_id() -> u64 {
     unsafe { GetForegroundWindow() }.0 as usize as u64
+}
+
+/// RAII guard for AttachThreadInput.
+/// Attaches `current` to `fg` and `target` (deduplicating when they are the same thread)
+/// and detaches only the pairs that were actually and successfully attached.
+struct AttachGuard {
+    current: u32,
+    fg: Option<u32>,
+    target: Option<u32>,
+}
+
+impl AttachGuard {
+    unsafe fn new(current: u32, fg: u32, target: u32) -> Self {
+        let fg_ok = current != fg && AttachThreadInput(current, fg, true).as_bool();
+        // Skip second attach when target == fg to avoid double-attaching the same pair.
+        let target_ok =
+            current != target && target != fg && AttachThreadInput(current, target, true).as_bool();
+        Self {
+            current,
+            fg: fg_ok.then_some(fg),
+            target: target_ok.then_some(target),
+        }
+    }
+}
+
+impl Drop for AttachGuard {
+    fn drop(&mut self) {
+        unsafe {
+            if let Some(tid) = self.target {
+                let _ = AttachThreadInput(self.current, tid, false);
+            }
+            if let Some(tid) = self.fg {
+                let _ = AttachThreadInput(self.current, tid, false);
+            }
+        }
+    }
 }
 
 pub struct WinWindowManager;
@@ -91,6 +127,12 @@ impl WindowManager for WinWindowManager {
     fn focus_window(&self, window: &GameWindow) -> anyhow::Result<()> {
         // window_id is the HWND captured at enumeration time — use it directly.
         let hwnd = HWND(window.window_id as usize as *mut _);
+        if !unsafe { IsWindow(Some(hwnd)).as_bool() } {
+            return Err(anyhow::anyhow!(
+                "window no longer valid: {}",
+                window.character_name
+            ));
+        }
 
         unsafe {
             // Disable DWM transition animation for instant focus appearance.
@@ -125,24 +167,11 @@ impl WindowManager for WinWindowManager {
             let fg_tid = GetWindowThreadProcessId(GetForegroundWindow(), None);
             let target_tid = GetWindowThreadProcessId(hwnd, None);
 
-            if cur_tid != fg_tid {
-                let _ = AttachThreadInput(cur_tid, fg_tid, true);
-            }
-            if cur_tid != target_tid {
-                let _ = AttachThreadInput(cur_tid, target_tid, true);
-            }
-
+            let _attach = AttachGuard::new(cur_tid, fg_tid, target_tid);
             let _ = BringWindowToTop(hwnd);
             let _ = SetForegroundWindow(hwnd);
             let _ = SetActiveWindow(hwnd);
             let _ = SetFocus(Some(hwnd));
-
-            if cur_tid != target_tid {
-                let _ = AttachThreadInput(cur_tid, target_tid, false);
-            }
-            if cur_tid != fg_tid {
-                let _ = AttachThreadInput(cur_tid, fg_tid, false);
-            }
 
             // Re-enable DWM transitions.
             let enable: u32 = 0;
@@ -166,6 +195,9 @@ impl WindowManager for WinWindowManager {
         if layout == "maximize" {
             for window in windows {
                 let hwnd = HWND(window.window_id as usize as *mut _);
+                if !unsafe { IsWindow(Some(hwnd)).as_bool() } {
+                    continue;
+                }
                 unsafe {
                     let _ = ShowWindow(hwnd, SW_MAXIMIZE);
                 }
@@ -174,6 +206,12 @@ impl WindowManager for WinWindowManager {
         }
 
         let first_hwnd = HWND(windows[0].window_id as usize as *mut _);
+        if !unsafe { IsWindow(Some(first_hwnd)).as_bool() } {
+            return Err(anyhow::anyhow!(
+                "first window no longer valid: {}",
+                windows[0].character_name
+            ));
+        }
         let monitor = unsafe { MonitorFromWindow(first_hwnd, MONITOR_DEFAULTTONEAREST) };
 
         let mut info = MONITORINFO {
@@ -241,6 +279,9 @@ impl WindowManager for WinWindowManager {
 
         for (window, (x, y, cw, ch)) in windows.iter().zip(slots.iter()) {
             let hwnd = HWND(window.window_id as usize as *mut _);
+            if !unsafe { IsWindow(Some(hwnd)).as_bool() } {
+                continue;
+            }
             unsafe {
                 if IsZoomed(hwnd).as_bool() || IsIconic(hwnd).as_bool() {
                     let _ = ShowWindow(hwnd, SW_RESTORE);

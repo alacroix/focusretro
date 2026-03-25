@@ -6,6 +6,22 @@ pub mod windows;
 
 use serde::{Deserialize, Serialize};
 
+/// Generic RAII guard: calls `f` on drop.
+/// Use through platform-specific helpers (`cf_guard`, `com_init`) rather than directly.
+pub(crate) struct OnDrop<F: FnOnce()>(Option<F>);
+impl<F: FnOnce()> OnDrop<F> {
+    pub(crate) fn new(f: F) -> Self {
+        OnDrop(Some(f))
+    }
+}
+impl<F: FnOnce()> Drop for OnDrop<F> {
+    fn drop(&mut self) {
+        if let Some(f) = self.0.take() {
+            f();
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GameWindow {
     pub character_name: String,
