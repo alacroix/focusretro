@@ -1,2 +1,5 @@
 # Initial Prettier + cargo fmt formatting
 9fd2f5b
+
+# Apply oxfmt formatting
+53b1aab
