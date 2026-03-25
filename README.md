@@ -70,6 +70,12 @@ npm run tauri dev
 
 # Build for production
 npm run tauri build
+
+# Format all code (Prettier + cargo fmt)
+npm run format
+
+# Lint all code (ESLint + prettier --check + cargo clippy)
+npm run lint
 ```
 
 The built application will be in `src-tauri/target/release/bundle/`.
