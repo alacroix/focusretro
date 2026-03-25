@@ -11,7 +11,9 @@
     "tauri:dev:offline": "VITE_UPDATER=false tauri dev --config src-tauri/offline.conf.json -- --no-default-features",
     "tauri:build:offline": "VITE_UPDATER=false tauri build --config src-tauri/offline.conf.json -- --no-default-features",
     "build:landing": "tailwindcss -i docs/input.css -o docs/style.css --minify",
-    "seo": "npx lighthouse https://alacroix.github.io/focusretro/ --only-categories=seo,performance,best-practices --output=html --output-path=./lighthouse-report.html --view"
+    "seo": "npx lighthouse https://alacroix.github.io/focusretro/ --only-categories=seo,performance,best-practices --output=html --output-path=./lighthouse-report.html --view",
+    "format": "prettier --write . && cd src-tauri && cargo fmt",
+    "lint": "eslint src && prettier --check . && cd src-tauri && cargo clippy"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.10.1",
@@ -23,15 +25,23 @@
     "react-i18next": "^16.5.8"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.4",
     "@tailwindcss/cli": "^4.2.2",
     "@tailwindcss/postcss": "^4.2.2",
     "@tauri-apps/cli": "^2.10.1",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
+    "eslint": "^9.39.4",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
+    "lefthook": "^2.1.4",
     "postcss": "^8.5.8",
+    "prettier": "^3.8.1",
+    "prettier-plugin-tailwindcss": "^0.7.2",
     "tailwindcss": "^4.2.2",
     "typescript": "^5.9.3",
+    "typescript-eslint": "^8.57.2",
     "vite": "^8.0.1"
   }
 }

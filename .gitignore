@@ -14,6 +14,9 @@ src-tauri/capabilities/updater.json
 .env
 .env.*
 
+# Linting cache
+.eslintcache
+
 # IDE
 .vscode/
 .idea/

@@ -1,0 +1,11 @@
+pre-commit:
+  commands:
+    prettier:
+      glob: "*.{ts,tsx,js,jsx,json,css,md}"
+      run: npx prettier --write {staged_files} && git add {staged_files}
+    eslint:
+      glob: "*.{ts,tsx}"
+      run: npx eslint --cache {staged_files}
+    cargo-fmt:
+      glob: "src-tauri/**/*.rs"
+      run: cargo fmt --manifest-path src-tauri/Cargo.toml && git add {staged_files}
