@@ -814,6 +814,8 @@ mod tests {
     #[test]
     fn migrate_does_nothing_when_old_path_absent() {
         let tmp = tempfile::tempdir().unwrap();
+        std::env::set_var("HOME", tmp.path());
+        std::env::set_var("USERPROFILE", tmp.path());
         let new_path = tmp.path().join("new").join("config.json");
         migrate_config_if_needed(&new_path);
         assert!(!new_path.exists());
