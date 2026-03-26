@@ -1,7 +1,8 @@
 use crate::platform::NotificationListener;
 use log::{error, info, warn};
+use parking_lot::Mutex;
 use std::collections::HashSet;
-use std::sync::{Arc, LazyLock, Mutex};
+use std::sync::{Arc, LazyLock};
 
 use regex::Regex;
 
@@ -232,7 +233,7 @@ impl NotificationListener for WinNotificationListener {
 
             let tid = unsafe { GetCurrentThreadId() };
             {
-                let mut guard = thread_id_store.lock().unwrap();
+                let mut guard = thread_id_store.lock();
                 *guard = Some(tid);
             }
 
@@ -301,7 +302,7 @@ impl NotificationListener for WinNotificationListener {
                 if let Ok(existing) = op.get() {
                     let existing = existing;
                     let count = existing.Size().unwrap_or(0);
-                    let mut ids = seen_ids.lock().unwrap();
+                    let mut ids = seen_ids.lock();
                     for i in 0..count {
                         if let Ok(n) = existing.GetAt(i) {
                             if let Ok(id) = n.Id() {
@@ -325,7 +326,7 @@ impl NotificationListener for WinNotificationListener {
                 if let Some(args) = &*args {
                     if args.ChangeKind()? == UserNotificationChangedKind::Added {
                         let id = args.UserNotificationId()?;
-                        let is_new = event_seen_ids.lock().unwrap().insert(id);
+                        let is_new = event_seen_ids.lock().insert(id);
                         if is_new {
                             info!("[WinNotif] Event: new notification ID {}", id);
                             process_notification(&event_listener, id, &event_callback);
@@ -365,7 +366,7 @@ impl NotificationListener for WinNotificationListener {
                 let count = notifications.Size().unwrap_or(0);
                 let mut new_notif_ids: Vec<u32> = Vec::new();
                 {
-                    let mut ids = seen_ids.lock().unwrap();
+                    let mut ids = seen_ids.lock();
                     for i in 0..count {
                         let notif: UserNotification = match notifications.GetAt(i) {
                             Ok(n) => n,
@@ -407,7 +408,7 @@ impl NotificationListener for WinNotificationListener {
 
     fn stop(&self) {
         let tid = {
-            let guard = self.thread_id.lock().unwrap();
+            let guard = self.thread_id.lock();
             *guard
         };
         if let Some(thread_id) = tid {

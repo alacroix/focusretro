@@ -20,7 +20,7 @@ struct HotkeyContext {
     state: Arc<AppState>,
     handle: AppHandle,
     last_hover_seg: Arc<std::sync::atomic::AtomicI32>,
-    scale: Arc<std::sync::Mutex<f64>>,
+    scale: Arc<parking_lot::Mutex<f64>>,
 }
 
 thread_local! {
@@ -130,9 +130,7 @@ fn fire_action(action: &str, c: &HotkeyContext) {
             if let Some(w) = h.get_webview_window("radial-overlay") {
                 let scale = w.scale_factor().unwrap_or(1.0);
                 // Cache scale so mouse_callback can convert physical→logical
-                if let Ok(mut g) = scale_arc.lock() {
-                    *g = scale;
-                }
+                *scale_arc.lock() = scale;
 
                 // Store logical cursor as radial center for segment math
                 state_ref.set_radial_center(phys_x / scale, phys_y / scale);
@@ -186,11 +184,11 @@ fn fire_action(action: &str, c: &HotkeyContext) {
 fn close_radial(
     h: AppHandle,
     state_ref: Arc<AppState>,
-    scale_arc: Arc<std::sync::Mutex<f64>>,
+    scale_arc: Arc<parking_lot::Mutex<f64>>,
     phys_x: f64,
     phys_y: f64,
 ) {
-    let scale = scale_arc.lock().map(|g| *g).unwrap_or(1.0);
+    let scale = *scale_arc.lock();
     let selected = resolve_selection(&state_ref, phys_x / scale, phys_y / scale);
 
     if let Some(w) = h.get_webview_window("radial-overlay") {
@@ -318,7 +316,7 @@ unsafe extern "system" fn mouse_callback(ncode: i32, wparam: WPARAM, lparam: LPA
                 if c.state.radial_open.load(Ordering::Relaxed) {
                     if let Some(keydown) = c.state.get_radial_center() {
                         let ms = &*(lparam.0 as *const MSLLHOOKSTRUCT);
-                        let scale = c.scale.lock().map(|g| *g).unwrap_or(1.0);
+                        let scale = *c.scale.lock();
                         let lx = ms.pt.x as f64 / scale;
                         let ly = ms.pt.y as f64 / scale;
                         let accounts = c.state.get_account_views();
@@ -417,7 +415,7 @@ pub fn start_hotkey_listener(handle: AppHandle, state: Arc<AppState>) {
                 state: state.clone(),
                 handle: handle.clone(),
                 last_hover_seg: Arc::new(std::sync::atomic::AtomicI32::new(-1)),
-                scale: Arc::new(std::sync::Mutex::new(1.0)),
+                scale: Arc::new(parking_lot::Mutex::new(1.0)),
             });
         });
 

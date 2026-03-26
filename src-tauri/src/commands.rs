@@ -192,7 +192,7 @@ pub fn get_taskbar_ungroup_state(_state: tauri::State<'_, Arc<AppState>>) -> boo
 #[tauri::command]
 pub fn apply_window_icon(state: tauri::State<'_, Arc<AppState>>, window_id: u64, rgba: Vec<u8>) {
     use crate::platform::windows::taskbar;
-    let mut handles = state.taskbar_icon_handles.lock().unwrap();
+    let mut handles = state.taskbar_icon_handles.lock();
     taskbar::set_window_icon(window_id as isize, &rgba, &mut handles);
 }
 
@@ -258,8 +258,8 @@ pub fn reorder_account(
     if state.is_taskbar_ungroup_enabled() {
         use crate::platform::windows::taskbar;
         use std::sync::atomic::Ordering;
-        let windows = state.accounts.lock().unwrap().clone();
-        let cache = state.taskbar_aumid_cache.lock().unwrap();
+        let windows = state.accounts.lock().clone();
+        let cache = state.taskbar_aumid_cache.lock();
         taskbar::reorder_taskbar_buttons(&windows, &cache);
         // Mark as applied so the next poll doesn't reorder a second time
         let ver = state.taskbar_order_version.load(Ordering::Relaxed);
@@ -498,7 +498,6 @@ pub fn apply_layout(
     let ordered_names: Vec<String> = state
         .accounts
         .lock()
-        .unwrap()
         .iter()
         .map(|w| w.character_name.clone())
         .collect();

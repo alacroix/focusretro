@@ -1,9 +1,9 @@
 use crate::platform::GameWindow;
 use log::{error, info};
+use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::Mutex;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StoredMessage {
@@ -318,11 +318,11 @@ impl AppState {
             pm_enabled: self.pm_enabled.load(Ordering::Relaxed),
             auto_accept_enabled: self.auto_accept_enabled.load(Ordering::Relaxed),
             show_debug: self.show_debug.load(Ordering::Relaxed),
-            profiles: self.profiles.lock().unwrap().clone(),
-            hotkeys: self.hotkeys.lock().unwrap().clone(),
-            language: self.language.lock().unwrap().clone(),
-            theme: self.theme.lock().unwrap().clone(),
-            update_check_consent: *self.update_check_consent.lock().unwrap(),
+            profiles: self.profiles.lock().clone(),
+            hotkeys: self.hotkeys.lock().clone(),
+            language: self.language.lock().clone(),
+            theme: self.theme.lock().clone(),
+            update_check_consent: *self.update_check_consent.lock(),
             close_to_tray: self.close_to_tray.load(Ordering::Relaxed),
             close_behavior_prompted: self.close_behavior_prompted.load(Ordering::Relaxed),
             #[cfg(target_os = "windows")]
@@ -397,11 +397,11 @@ impl AppState {
     }
 
     pub fn get_hotkeys(&self) -> Vec<HotkeyBinding> {
-        self.hotkeys.lock().unwrap().clone()
+        self.hotkeys.lock().clone()
     }
 
     pub fn reset_hotkeys(&self) {
-        *self.hotkeys.lock().unwrap() = default_hotkeys();
+        *self.hotkeys.lock() = default_hotkeys();
         self.save();
     }
 
@@ -414,7 +414,7 @@ impl AppState {
         shift: bool,
         ctrl: bool,
     ) {
-        let mut hotkeys = self.hotkeys.lock().unwrap();
+        let mut hotkeys = self.hotkeys.lock();
         if let Some(hk) = hotkeys.iter_mut().find(|h| h.action == action) {
             hk.key = key;
             hk.cmd = cmd;
@@ -436,26 +436,26 @@ impl AppState {
     }
 
     pub fn get_language(&self) -> String {
-        self.language.lock().unwrap().clone()
+        self.language.lock().clone()
     }
 
     pub fn set_language(&self, lang: String) {
-        *self.language.lock().unwrap() = lang;
+        *self.language.lock() = lang;
         self.save();
     }
 
     pub fn get_theme(&self) -> String {
-        self.theme.lock().unwrap().clone()
+        self.theme.lock().clone()
     }
 
     pub fn set_theme(&self, theme: String) {
-        *self.theme.lock().unwrap() = theme;
+        *self.theme.lock() = theme;
         self.save();
     }
 
     pub fn update_accounts(&self, windows: Vec<GameWindow>) {
-        let mut profiles = self.profiles.lock().unwrap();
-        let mut accounts = self.accounts.lock().unwrap();
+        let mut profiles = self.profiles.lock();
+        let mut accounts = self.accounts.lock();
 
         // Add newly detected windows not yet in profiles (preserves existing profiles)
         let mut new_profiles_added = false;
@@ -511,13 +511,13 @@ impl AppState {
 
     #[allow(dead_code)]
     pub fn get_accounts(&self) -> Vec<GameWindow> {
-        self.accounts.lock().unwrap().clone()
+        self.accounts.lock().clone()
     }
 
     pub fn get_account_views(&self) -> Vec<AccountView> {
-        let profiles = self.profiles.lock().unwrap();
-        let accounts = self.accounts.lock().unwrap();
-        let current_idx = *self.current_index.lock().unwrap();
+        let profiles = self.profiles.lock();
+        let accounts = self.accounts.lock();
+        let current_idx = *self.current_index.lock();
 
         accounts
             .iter()
@@ -544,14 +544,13 @@ impl AppState {
     pub fn has_account(&self, name: &str) -> bool {
         self.accounts
             .lock()
-            .unwrap()
             .iter()
             .any(|w| w.character_name.eq_ignore_ascii_case(name))
     }
 
     pub fn reorder_account(&self, name: &str, new_position: usize) -> bool {
-        let mut profiles = self.profiles.lock().unwrap();
-        let mut accounts = self.accounts.lock().unwrap();
+        let mut profiles = self.profiles.lock();
+        let mut accounts = self.accounts.lock();
 
         // Find and remove the source profile
         let source_profile_idx = match profiles
@@ -616,7 +615,7 @@ impl AppState {
     }
 
     pub fn set_principal(&self, name: &str) {
-        let mut profiles = self.profiles.lock().unwrap();
+        let mut profiles = self.profiles.lock();
         for p in profiles.iter_mut() {
             p.is_principal = p.character_name.eq_ignore_ascii_case(name);
         }
@@ -625,8 +624,8 @@ impl AppState {
     }
 
     pub fn get_principal(&self) -> Option<GameWindow> {
-        let profiles = self.profiles.lock().unwrap();
-        let accounts = self.accounts.lock().unwrap();
+        let profiles = self.profiles.lock();
+        let accounts = self.accounts.lock();
         profiles
             .iter()
             .find(|p| p.is_principal)
@@ -640,7 +639,7 @@ impl AppState {
     }
 
     pub fn get_principal_name(&self) -> Option<String> {
-        let profiles = self.profiles.lock().unwrap();
+        let profiles = self.profiles.lock();
         profiles
             .iter()
             .find(|p| p.is_principal)
@@ -648,11 +647,11 @@ impl AppState {
     }
 
     pub fn account_count(&self) -> usize {
-        self.accounts.lock().unwrap().len()
+        self.accounts.lock().len()
     }
 
     pub fn update_profile(&self, name: &str, color: Option<String>, icon_path: Option<String>) {
-        let mut profiles = self.profiles.lock().unwrap();
+        let mut profiles = self.profiles.lock();
         if let Some(p) = profiles
             .iter_mut()
             .find(|p| p.character_name.eq_ignore_ascii_case(name))
@@ -666,11 +665,11 @@ impl AppState {
 
     #[allow(dead_code)]
     pub fn get_profiles(&self) -> Vec<AccountProfile> {
-        self.profiles.lock().unwrap().clone()
+        self.profiles.lock().clone()
     }
 
     pub fn add_message(&self, msg: StoredMessage) {
-        let mut messages = self.messages.lock().unwrap();
+        let mut messages = self.messages.lock();
         messages.push(msg);
         if messages.len() > 500 {
             messages.drain(0..100);
@@ -678,63 +677,63 @@ impl AppState {
     }
 
     pub fn get_messages(&self) -> Vec<StoredMessage> {
-        self.messages.lock().unwrap().clone()
+        self.messages.lock().clone()
     }
 
     pub fn clear_messages(&self) {
-        self.messages.lock().unwrap().clear();
+        self.messages.lock().clear();
     }
 
     pub fn set_current_by_name(&self, name: &str) {
-        let accounts = self.accounts.lock().unwrap();
+        let accounts = self.accounts.lock();
         if let Some(idx) = accounts
             .iter()
             .position(|w| w.character_name.eq_ignore_ascii_case(name))
         {
-            *self.current_index.lock().unwrap() = idx;
+            *self.current_index.lock() = idx;
         }
     }
 
     pub fn get_current_window(&self) -> Option<GameWindow> {
-        let accounts = self.accounts.lock().unwrap();
+        let accounts = self.accounts.lock();
         if accounts.is_empty() {
             return None;
         }
-        let idx = *self.current_index.lock().unwrap();
+        let idx = *self.current_index.lock();
         accounts.get(idx).cloned()
     }
 
     pub fn set_radial_center(&self, x: f64, y: f64) {
-        *self.radial_center.lock().unwrap() = Some((x, y));
+        *self.radial_center.lock() = Some((x, y));
     }
 
     pub fn get_radial_center(&self) -> Option<(f64, f64)> {
-        *self.radial_center.lock().unwrap()
+        *self.radial_center.lock()
     }
 
     pub fn sync_current_from_window_id(&self, window_id: u64) {
-        let accounts = self.accounts.lock().unwrap();
+        let accounts = self.accounts.lock();
         if let Some(idx) = accounts.iter().position(|w| w.window_id == window_id) {
-            *self.current_index.lock().unwrap() = idx;
+            *self.current_index.lock() = idx;
         }
     }
 
     pub fn cycle_next(&self) -> Option<GameWindow> {
-        let accounts = self.accounts.lock().unwrap();
+        let accounts = self.accounts.lock();
         if accounts.is_empty() {
             return None;
         }
-        let mut idx = self.current_index.lock().unwrap();
+        let mut idx = self.current_index.lock();
         *idx = (*idx + 1) % accounts.len();
         Some(accounts[*idx].clone())
     }
 
     pub fn cycle_prev(&self) -> Option<GameWindow> {
-        let accounts = self.accounts.lock().unwrap();
+        let accounts = self.accounts.lock();
         if accounts.is_empty() {
             return None;
         }
-        let mut idx = self.current_index.lock().unwrap();
+        let mut idx = self.current_index.lock();
         *idx = if *idx == 0 {
             accounts.len() - 1
         } else {
@@ -744,7 +743,7 @@ impl AppState {
     }
 
     pub fn add_trace(&self, entry: TraceEntry) {
-        let mut traces = self.traces.lock().unwrap();
+        let mut traces = self.traces.lock();
         if traces.len() >= 100 {
             traces.remove(0);
         }
@@ -752,27 +751,27 @@ impl AppState {
     }
 
     pub fn get_traces(&self) -> Vec<TraceEntry> {
-        self.traces.lock().unwrap().clone()
+        self.traces.lock().clone()
     }
 
     pub fn clear_traces(&self) {
-        self.traces.lock().unwrap().clear();
+        self.traces.lock().clear();
     }
 
     pub fn set_notif_mode(&self, mode: String) {
-        *self.notif_mode.lock().unwrap() = mode;
+        *self.notif_mode.lock() = mode;
     }
 
     pub fn get_notif_mode(&self) -> String {
-        self.notif_mode.lock().unwrap().clone()
+        self.notif_mode.lock().clone()
     }
 
     pub fn get_update_consent(&self) -> Option<bool> {
-        *self.update_check_consent.lock().unwrap()
+        *self.update_check_consent.lock()
     }
 
     pub fn set_update_consent(&self, consent: bool) {
-        *self.update_check_consent.lock().unwrap() = Some(consent);
+        *self.update_check_consent.lock() = Some(consent);
         self.save();
     }
 

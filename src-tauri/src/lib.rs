@@ -140,7 +140,7 @@ pub fn run() {
             if let tauri::RunEvent::Exit = event {
                 use crate::platform::windows::taskbar;
                 let state = app_handle.state::<std::sync::Arc<AppState>>();
-                let mut handles = state.taskbar_icon_handles.lock().unwrap();
+                let mut handles = state.taskbar_icon_handles.lock();
                 taskbar::cleanup_all_icons(&mut handles);
             }
             #[cfg(not(any(target_os = "macos", target_os = "windows")))]
