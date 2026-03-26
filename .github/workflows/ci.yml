@@ -8,7 +8,7 @@ on:
       - "docs/**"
 
 jobs:
-  typecheck:
+  typescript:
     runs-on: ubuntu-latest
     if: "!startsWith(github.event.head_commit.message, ':bookmark:')"
 
@@ -27,7 +27,10 @@ jobs:
       - name: Type check
         run: npx tsc --noEmit
 
-  rust-check:
+      - name: Lint
+        run: npx oxlint src && npx oxfmt --check .
+
+  rust:
     strategy:
       fail-fast: false
       matrix:
@@ -51,3 +54,9 @@ jobs:
 
       - name: Cargo check
         run: cargo check --manifest-path src-tauri/Cargo.toml
+
+      - name: Cargo clippy
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
+
+      - name: Cargo test
+        run: cargo test --manifest-path src-tauri/Cargo.toml
