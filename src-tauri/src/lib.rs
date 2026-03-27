@@ -82,6 +82,7 @@ pub fn run() {
             commands::get_auto_accept_state,
             commands::reorder_account,
             commands::set_principal,
+            commands::set_account_skipped,
             commands::update_account_profile,
             commands::get_profiles,
             commands::focus_principal,

@@ -30,6 +30,8 @@ pub struct AccountProfile {
     pub icon_path: Option<String>,
     #[serde(default)]
     pub is_principal: bool,
+    #[serde(default)]
+    pub is_skipped: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -41,6 +43,7 @@ pub struct AccountView {
     pub color: Option<String>,
     pub icon_path: Option<String>,
     pub is_principal: bool,
+    pub is_skipped: bool,
     pub is_current: bool,
     pub position: usize,
 }
@@ -473,6 +476,7 @@ impl AppState {
                     color: None,
                     icon_path: None,
                     is_principal: false,
+                    is_skipped: false,
                 });
                 new_profiles_added = true;
             }
@@ -538,6 +542,7 @@ impl AppState {
                     color: profile.and_then(|p| p.color.clone()),
                     icon_path: profile.and_then(|p| p.icon_path.clone()),
                     is_principal: profile.is_some_and(|p| p.is_principal),
+                    is_skipped: profile.is_some_and(|p| p.is_skipped),
                     is_current: i == current_idx,
                     position: i,
                 }
@@ -570,9 +575,10 @@ impl AppState {
         let open_after_removal: Vec<String> = profiles
             .iter()
             .filter(|p| {
-                accounts
-                    .iter()
-                    .any(|w| w.character_name.eq_ignore_ascii_case(&p.character_name))
+                !p.is_skipped
+                    && accounts
+                        .iter()
+                        .any(|w| w.character_name.eq_ignore_ascii_case(&p.character_name))
             })
             .map(|p| p.character_name.clone())
             .collect();
@@ -625,6 +631,26 @@ impl AppState {
         }
         drop(profiles);
         self.save();
+    }
+
+    pub fn set_skipped(&self, name: &str, skipped: bool) {
+        let mut profiles = self.profiles.lock();
+        if let Some(p) = profiles
+            .iter_mut()
+            .find(|p| p.character_name.eq_ignore_ascii_case(name))
+        {
+            p.is_skipped = skipped;
+        }
+        drop(profiles);
+        self.save();
+    }
+
+    pub fn is_account_skipped(&self, name: &str) -> bool {
+        let profiles = self.profiles.lock();
+        profiles
+            .iter()
+            .find(|p| p.character_name.eq_ignore_ascii_case(name))
+            .is_some_and(|p| p.is_skipped)
     }
 
     pub fn get_principal(&self) -> Option<GameWindow> {
@@ -723,26 +749,60 @@ impl AppState {
     }
 
     pub fn cycle_next(&self) -> Option<GameWindow> {
+        let profiles = self.profiles.lock();
         let accounts = self.accounts.lock();
         if accounts.is_empty() {
             return None;
         }
         let mut idx = self.current_index.lock();
-        *idx = (*idx + 1) % accounts.len();
+        let len = accounts.len();
+
+        // Search forward for the next non-skipped account.
+        // Read is_skipped directly from the held profiles guard — do NOT call
+        // is_account_skipped() here, that would re-lock profiles and deadlock.
+        for offset in 1..=len {
+            let candidate = (*idx + offset) % len;
+            let name = &accounts[candidate].character_name;
+            let is_skipped = profiles
+                .iter()
+                .find(|p| p.character_name.eq_ignore_ascii_case(name))
+                .is_some_and(|p| p.is_skipped);
+            if !is_skipped {
+                *idx = candidate;
+                return Some(accounts[candidate].clone());
+            }
+        }
+        // All accounts are skipped — fall back to unfiltered advance
+        *idx = (*idx + 1) % len;
         Some(accounts[*idx].clone())
     }
 
     pub fn cycle_prev(&self) -> Option<GameWindow> {
+        let profiles = self.profiles.lock();
         let accounts = self.accounts.lock();
         if accounts.is_empty() {
             return None;
         }
         let mut idx = self.current_index.lock();
-        *idx = if *idx == 0 {
-            accounts.len() - 1
-        } else {
-            *idx - 1
-        };
+        let len = accounts.len();
+
+        // Search backward for the previous non-skipped account.
+        // Read is_skipped directly from the held profiles guard — do NOT call
+        // is_account_skipped() here, that would re-lock profiles and deadlock.
+        for offset in 1..=len {
+            let candidate = (*idx + len - offset) % len;
+            let name = &accounts[candidate].character_name;
+            let is_skipped = profiles
+                .iter()
+                .find(|p| p.character_name.eq_ignore_ascii_case(name))
+                .is_some_and(|p| p.is_skipped);
+            if !is_skipped {
+                *idx = candidate;
+                return Some(accounts[candidate].clone());
+            }
+        }
+        // All accounts are skipped — fall back to unfiltered retreat
+        *idx = if *idx == 0 { len - 1 } else { *idx - 1 };
         Some(accounts[*idx].clone())
     }
 
@@ -863,6 +923,95 @@ mod tests {
     }
 
     #[test]
+    fn set_skipped_marks_profile() {
+        let state = make_state();
+
+        state.profiles.lock().push(AccountProfile {
+            character_name: "Craette".into(),
+            color: None,
+            icon_path: None,
+            is_principal: false,
+            is_skipped: false,
+        });
+
+        assert!(!state.is_account_skipped("Craette"));
+        state.set_skipped("Craette", true);
+        assert!(state.is_account_skipped("Craette"));
+        state.set_skipped("Craette", false);
+        assert!(!state.is_account_skipped("Craette"));
+    }
+
+    #[test]
+    fn is_account_skipped_returns_false_for_unknown() {
+        let state = make_state();
+        assert!(!state.is_account_skipped("Unknown"));
+    }
+
+    fn make_state_with_accounts(names: &[(&str, bool)]) -> AppState {
+        let state = make_state();
+        {
+            let mut profiles = state.profiles.lock();
+            let mut accounts = state.accounts.lock();
+            for (name, is_skipped) in names {
+                profiles.push(AccountProfile {
+                    character_name: name.to_string(),
+                    color: None,
+                    icon_path: None,
+                    is_principal: false,
+                    is_skipped: *is_skipped,
+                });
+                accounts.push(crate::platform::GameWindow {
+                    character_name: name.to_string(),
+                    window_id: profiles.len() as u64,
+                    pid: 1,
+                    title: format!("{} - Dofus Retro v1.0", name),
+                });
+            }
+        }
+        state
+    }
+
+    #[test]
+    fn cycle_next_skips_skipped_accounts() {
+        // A=active, B=skipped, C=active
+        let state = make_state_with_accounts(&[("A", false), ("B", true), ("C", false)]);
+        *state.current_index.lock() = 0; // at A
+
+        let next = state.cycle_next().unwrap();
+        assert_eq!(next.character_name, "C"); // B is skipped
+
+        let next2 = state.cycle_next().unwrap();
+        assert_eq!(next2.character_name, "A"); // wraps back
+    }
+
+    #[test]
+    fn cycle_prev_skips_skipped_accounts() {
+        let state = make_state_with_accounts(&[("A", false), ("B", true), ("C", false)]);
+        *state.current_index.lock() = 2; // at C
+
+        let prev = state.cycle_prev().unwrap();
+        assert_eq!(prev.character_name, "A"); // B is skipped
+    }
+
+    #[test]
+    fn cycle_next_all_skipped_falls_back() {
+        let state = make_state_with_accounts(&[("A", true), ("B", true)]);
+        *state.current_index.lock() = 0;
+        // Should not panic or loop forever - returns something
+        let result = state.cycle_next();
+        assert!(result.is_some());
+    }
+
+    #[test]
+    fn cycle_prev_all_skipped_falls_back() {
+        let state = make_state_with_accounts(&[("A", true), ("B", true)]);
+        *state.current_index.lock() = 0; // zero-index edge case
+                                         // Should not panic or loop forever - returns something
+        let result = state.cycle_prev();
+        assert!(result.is_some());
+    }
+
+    #[test]
     fn migrate_skips_when_new_path_already_exists() {
         let tmp = tempfile::tempdir().unwrap();
         let old_dir = tmp.path().join(".focusretro");
@@ -962,5 +1111,42 @@ mod tests {
         // Bob's profile is still there
         let profiles = state.profiles.lock().clone();
         assert!(profiles.iter().any(|p| p.character_name == "Bob"));
+    }
+
+    #[test]
+    fn reorder_account_skips_skipped_in_position_mapping() {
+        let state = make_state();
+
+        // Profiles: A (active), B (skipped), C (active)
+        // Active visual order: A=0, C=1
+        // Dragging A to position 1 (after C) should place C before A in profiles
+        {
+            let mut profiles = state.profiles.lock();
+            let mut accounts = state.accounts.lock();
+            for (name, skipped) in &[("A", false), ("B", true), ("C", false)] {
+                profiles.push(AccountProfile {
+                    character_name: name.to_string(),
+                    color: None,
+                    icon_path: None,
+                    is_principal: false,
+                    is_skipped: *skipped,
+                });
+                accounts.push(crate::platform::GameWindow {
+                    character_name: name.to_string(),
+                    window_id: profiles.len() as u64,
+                    pid: 1,
+                    title: format!("{} - Dofus Retro v1.0", name),
+                });
+            }
+        }
+
+        // Move "A" to visual position 1 (after "C" in active list)
+        let result = state.reorder_account("A", 1);
+        assert!(result);
+
+        let profiles = state.profiles.lock().clone();
+        let names: Vec<&str> = profiles.iter().map(|p| p.character_name.as_str()).collect();
+        // "C" should now come before "A"
+        assert!(names.iter().position(|n| *n == "C") < names.iter().position(|n| *n == "A"));
     }
 }

@@ -223,6 +223,9 @@ pub(crate) fn route_event(event: &parser::GameEvent, state: &AppState) -> RouteA
             if !state.is_autoswitch_enabled() {
                 return RouteAction::Ignore;
             }
+            if state.is_account_skipped(&turn.character_name) {
+                return RouteAction::Ignore;
+            }
             RouteAction::Focus {
                 name: turn.character_name.clone(),
                 auto_accept: false,
@@ -236,6 +239,9 @@ pub(crate) fn route_event(event: &parser::GameEvent, state: &AppState) -> RouteA
             if !state.has_account(&invite.inviter_name) {
                 return RouteAction::Ignore;
             }
+            if state.is_account_skipped(&invite.receiver_name) {
+                return RouteAction::Ignore;
+            }
             RouteAction::Focus {
                 name: invite.receiver_name.clone(),
                 auto_accept: state.is_auto_accept_enabled(),
@@ -247,6 +253,9 @@ pub(crate) fn route_event(event: &parser::GameEvent, state: &AppState) -> RouteA
                 return RouteAction::Ignore;
             }
             if !state.has_account(&trade.requester_name) {
+                return RouteAction::Ignore;
+            }
+            if state.is_account_skipped(&trade.receiver_name) {
                 return RouteAction::Ignore;
             }
             RouteAction::Focus {
@@ -552,6 +561,41 @@ mod tests {
         state.pm_enabled.store(false, Ordering::Relaxed);
         assert!(matches!(
             route_event(&pm("Bob", "Alice"), &state),
+            RouteAction::Ignore
+        ));
+    }
+
+    // --- Skipped accounts ---
+
+    #[test]
+    fn turn_skipped_account_returns_ignore() {
+        let state = make_state();
+        state.update_accounts(vec![make_window("Craette", 1)]);
+        state.set_skipped("Craette", true);
+        assert!(matches!(
+            route_event(&turn("Craette"), &state),
+            RouteAction::Ignore
+        ));
+    }
+
+    #[test]
+    fn group_invite_skipped_receiver_returns_ignore() {
+        let state = make_state();
+        state.update_accounts(vec![make_window("Craette", 1), make_window("Alice", 2)]);
+        state.set_skipped("Craette", true);
+        assert!(matches!(
+            route_event(&invite("Craette", "Alice"), &state),
+            RouteAction::Ignore
+        ));
+    }
+
+    #[test]
+    fn trade_skipped_receiver_returns_ignore() {
+        let state = make_state();
+        state.update_accounts(vec![make_window("Craette", 1), make_window("Alice", 2)]);
+        state.set_skipped("Craette", true);
+        assert!(matches!(
+            route_event(&trade("Craette", "Alice"), &state),
             RouteAction::Ignore
         ));
     }

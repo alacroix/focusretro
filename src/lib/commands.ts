@@ -15,6 +15,7 @@ export interface AccountView {
   color: string | null;
   icon_path: string | null;
   is_principal: boolean;
+  is_skipped: boolean;
   is_current: boolean;
   position: number;
 }
@@ -151,6 +152,10 @@ export function reorderAccount(name: string, newPosition: number): Promise<Accou
 
 export function setPrincipal(name: string): Promise<AccountView[]> {
   return invoke("set_principal", { name });
+}
+
+export function setAccountSkipped(name: string, skipped: boolean): Promise<AccountView[]> {
+  return invoke("set_account_skipped", { name, skipped });
 }
 
 export function updateAccountProfile(

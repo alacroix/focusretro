@@ -7,6 +7,7 @@ import {
   applyLayout,
   focusAccount,
   reorderAccount,
+  setAccountSkipped,
   setPrincipal,
   updateAccountProfile,
 } from "../lib/commands";
@@ -171,6 +172,8 @@ interface Props {
 
 function AccountList({ accounts, focusedName, onRefresh, onUpdate, onFocused }: Props) {
   const { t } = useTranslation();
+  const active = accounts.filter((a) => !a.is_skipped);
+  const skipped = accounts.filter((a) => a.is_skipped);
   const [editingName, setEditingName] = useState<string | null>(null);
   const [dragState, setDragState] = useState<{
     sourceIdx: number;
@@ -204,12 +207,12 @@ function AccountList({ accounts, focusedName, onRefresh, onUpdate, onFocused }: 
       if (!dragState) return;
       const dy = e.clientY - startYRef.current;
       const shift = Math.round(dy / itemHeightRef.current);
-      const newIdx = Math.max(0, Math.min(accounts.length - 1, dragState.sourceIdx + shift));
+      const newIdx = Math.max(0, Math.min(active.length - 1, dragState.sourceIdx + shift));
       if (newIdx !== dragState.currentIdx) {
         setDragState({ ...dragState, currentIdx: newIdx });
       }
     },
-    [dragState, accounts.length],
+    [dragState, active.length],
   );
 
   const handlePointerUp = useCallback(async () => {
@@ -217,14 +220,14 @@ function AccountList({ accounts, focusedName, onRefresh, onUpdate, onFocused }: 
     const { sourceIdx, currentIdx } = dragState;
     setDragState(null);
     if (sourceIdx !== currentIdx) {
-      const name = accounts[sourceIdx].character_name;
-      const reordered = [...accounts];
+      const name = active[sourceIdx].character_name;
+      const reordered = [...active];
       const [moved] = reordered.splice(sourceIdx, 1);
       reordered.splice(currentIdx, 0, moved);
-      onUpdate(reordered);
+      onUpdate([...reordered, ...skipped]);
       reorderAccount(name, currentIdx).then(onUpdate);
     }
-  }, [dragState, accounts, onUpdate]);
+  }, [dragState, active, skipped, onUpdate]);
 
   const handleSetPrincipal = async (name: string) => {
     onUpdate(await setPrincipal(name));
@@ -240,9 +243,17 @@ function AccountList({ accounts, focusedName, onRefresh, onUpdate, onFocused }: 
     onUpdate(await updateAccountProfile(name, account?.color ?? null, icon));
   };
 
+  const handleSkip = async (name: string) => {
+    onUpdate(await setAccountSkipped(name, true));
+  };
+
+  const handleUnskip = async (name: string) => {
+    onUpdate(await setAccountSkipped(name, false));
+  };
+
   const getDisplayOrder = () => {
-    if (!dragState) return accounts.map((_, i) => i);
-    const order = accounts.map((_, i) => i);
+    if (!dragState) return active.map((_, i) => i);
+    const order = active.map((_, i) => i);
     const { sourceIdx, currentIdx } = dragState;
     order.splice(sourceIdx, 1);
     order.splice(currentIdx, 0, sourceIdx);
@@ -268,7 +279,7 @@ function AccountList({ accounts, focusedName, onRefresh, onUpdate, onFocused }: 
         >
           <div className="mb-2 flex items-center justify-between">
             <p className="text-[11px] font-medium text-gray-700 dark:text-gray-300">
-              {editingAccount.character_name} — {t("accounts.customize")}
+              {editingAccount.character_name} - {t("accounts.customize")}
             </p>
             <button
               type="button"
@@ -415,153 +426,256 @@ function AccountList({ accounts, focusedName, onRefresh, onUpdate, onFocused }: 
           </p>
         </div>
       ) : (
-        <ul ref={listRef} className="space-y-1 select-none">
-          {displayOrder.map((accountIdx) => {
-            const account = accounts[accountIdx];
-            const isDragging = dragState !== null && dragState.sourceIdx === accountIdx;
+        <>
+          {active.length > 0 && (
+            <ul ref={listRef} className="space-y-1 select-none">
+              {displayOrder.map((accountIdx) => {
+                const account = active[accountIdx];
+                const isDragging = dragState !== null && dragState.sourceIdx === accountIdx;
 
-            return (
-              <li
-                key={account.window_id}
-                onPointerDown={handlePointerDown(accountIdx)}
-                onPointerMove={handlePointerMove}
-                onPointerUp={handlePointerUp}
-                className={`touch-none transition-[transform,opacity] duration-150 ease-out ${isDragging ? "relative z-10 scale-[1.02] opacity-60" : ""}`}
-              >
-                <div
-                  className={`group relative flex h-9 items-center overflow-hidden rounded-lg border bg-gray-50 transition-colors dark:bg-gray-900 ${
-                    isDragging
-                      ? "border-brand-500 shadow-lg shadow-brand-500/10"
-                      : "border-gray-200 hover:border-gray-300 dark:border-gray-800 dark:hover:border-gray-700"
-                  } cursor-grab active:cursor-grabbing`}
-                >
-                  {/* Colored left accent bar */}
-                  <div
-                    className="absolute top-0 bottom-0 left-0 w-[3px] shrink-0 dark:hidden"
-                    style={{
-                      backgroundColor:
-                        account.character_name === focusedName ? "#F6A800" : "#d1d5db",
-                    }}
-                  />
-                  <div
-                    className="absolute top-0 bottom-0 left-0 hidden w-[3px] shrink-0 dark:block"
-                    style={{
-                      backgroundColor:
-                        account.character_name === focusedName ? "#F6A800" : "#374151",
-                    }}
-                  />
-
-                  {/* Drag handle */}
-                  <div className="flex shrink-0 items-center pr-1.5 pl-3">
-                    <svg
-                      width="8"
-                      height="10"
-                      viewBox="0 0 8 10"
-                      className="text-gray-300 dark:text-gray-600"
-                      fill="currentColor"
-                    >
-                      <circle cx="2" cy="2" r="1" />
-                      <circle cx="6" cy="2" r="1" />
-                      <circle cx="2" cy="5" r="1" />
-                      <circle cx="6" cy="5" r="1" />
-                      <circle cx="2" cy="8" r="1" />
-                      <circle cx="6" cy="8" r="1" />
-                    </svg>
-                  </div>
-
-                  {/* Avatar */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setEditingName(
-                        editingName === account.character_name ? null : account.character_name,
-                      );
-                    }}
-                    className="mr-2 flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-full border"
-                    style={{
-                      backgroundColor: account.icon_path
-                        ? "transparent"
-                        : (account.color ?? "#6b7280"),
-                      borderColor: account.color ?? "#d1d5db",
-                    }}
-                    title={t("accounts.customize")}
+                return (
+                  <li
+                    key={account.window_id}
+                    onPointerDown={handlePointerDown(accountIdx)}
+                    onPointerMove={handlePointerMove}
+                    onPointerUp={handlePointerUp}
+                    className={`touch-none transition-[transform,opacity] duration-150 ease-out ${isDragging ? "relative z-10 scale-[1.02] opacity-60" : ""}`}
                   >
-                    {account.icon_path ? (
-                      <img
-                        src={`/icons/${account.icon_path}.png`}
-                        alt=""
-                        className="pointer-events-none h-full w-full object-cover"
+                    <div
+                      className={`group relative flex h-9 items-center overflow-hidden rounded-lg border bg-gray-50 transition-colors dark:bg-gray-900 ${
+                        isDragging
+                          ? "border-brand-500 shadow-lg shadow-brand-500/10"
+                          : "border-gray-200 hover:border-gray-300 dark:border-gray-800 dark:hover:border-gray-700"
+                      } cursor-grab active:cursor-grabbing`}
+                    >
+                      {/* Colored left accent bar */}
+                      <div
+                        className="absolute top-0 bottom-0 left-0 w-[3px] shrink-0 dark:hidden"
+                        style={{
+                          backgroundColor:
+                            account.character_name === focusedName ? "#F6A800" : "#d1d5db",
+                        }}
                       />
-                    ) : (
-                      <span className="text-[9px] leading-none font-bold text-white/80">
-                        {account.character_name[0]?.toUpperCase()}
-                      </span>
-                    )}
-                  </button>
+                      <div
+                        className="absolute top-0 bottom-0 left-0 hidden w-[3px] shrink-0 dark:block"
+                        style={{
+                          backgroundColor:
+                            account.character_name === focusedName ? "#F6A800" : "#374151",
+                        }}
+                      />
 
-                  {/* Name */}
-                  <div className="min-w-0 flex-1">
-                    <span className="block truncate text-xs font-medium text-gray-800 dark:text-gray-200">
-                      {account.character_name}
-                    </span>
-                  </div>
+                      {/* Drag handle */}
+                      <div className="flex shrink-0 items-center pr-1.5 pl-3">
+                        <svg
+                          width="8"
+                          height="10"
+                          viewBox="0 0 8 10"
+                          className="text-gray-300 dark:text-gray-600"
+                          fill="currentColor"
+                        >
+                          <circle cx="2" cy="2" r="1" />
+                          <circle cx="6" cy="2" r="1" />
+                          <circle cx="2" cy="5" r="1" />
+                          <circle cx="6" cy="5" r="1" />
+                          <circle cx="2" cy="8" r="1" />
+                          <circle cx="6" cy="8" r="1" />
+                        </svg>
+                      </div>
 
-                  {/* Action buttons */}
-                  <div className="ml-1 flex shrink-0 items-center gap-1 pr-2">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleSetPrincipal(account.character_name);
-                      }}
-                      className={`flex h-6 w-6 cursor-pointer items-center justify-center rounded transition-colors ${
-                        account.is_principal
-                          ? "text-amber-500 dark:text-amber-400"
-                          : "text-gray-300 opacity-0 group-hover:opacity-100 hover:text-amber-500 dark:text-gray-600 dark:hover:text-amber-400"
-                      }`}
-                      title={
-                        account.is_principal ? t("accounts.principal") : t("accounts.set_principal")
-                      }
-                    >
-                      <svg
-                        width="12"
-                        height="12"
-                        viewBox="0 0 12 12"
-                        fill={account.is_principal ? "currentColor" : "none"}
-                        stroke="currentColor"
-                        strokeWidth="1"
+                      {/* Avatar */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingName(
+                            editingName === account.character_name ? null : account.character_name,
+                          );
+                        }}
+                        className="mr-2 flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-full border"
+                        style={{
+                          backgroundColor: account.icon_path
+                            ? "transparent"
+                            : (account.color ?? "#6b7280"),
+                          borderColor: account.color ?? "#d1d5db",
+                        }}
+                        title={t("accounts.customize")}
                       >
-                        <path d="M6 0.5l1.6 3.3 3.7.5-2.7 2.6.6 3.7L6 8.9 2.8 10.6l.6-3.7L.7 4.3l3.7-.5L6 0.5z" />
-                      </svg>
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        focusAccount(account.character_name);
-                        onFocused(account.character_name);
-                      }}
-                      className="flex h-6 w-6 cursor-pointer items-center justify-center rounded text-gray-400 opacity-0 transition-colors group-hover:opacity-100 hover:text-brand-600 dark:text-gray-500 dark:hover:text-brand-400"
-                      title={t("accounts.focus_window")}
-                    >
-                      <svg
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
+                        {account.icon_path ? (
+                          <img
+                            src={`/icons/${account.icon_path}.png`}
+                            alt=""
+                            className="pointer-events-none h-full w-full object-cover"
+                          />
+                        ) : (
+                          <span className="text-[9px] leading-none font-bold text-white/80">
+                            {account.character_name[0]?.toUpperCase()}
+                          </span>
+                        )}
+                      </button>
+
+                      {/* Name */}
+                      <div className="min-w-0 flex-1">
+                        <span className="block truncate text-xs font-medium text-gray-800 dark:text-gray-200">
+                          {account.character_name}
+                        </span>
+                      </div>
+
+                      {/* Action buttons */}
+                      <div className="ml-1 flex shrink-0 items-center gap-1 pr-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSetPrincipal(account.character_name);
+                          }}
+                          className={`flex h-6 w-6 cursor-pointer items-center justify-center rounded transition-colors ${
+                            account.is_principal
+                              ? "text-amber-500 dark:text-amber-400"
+                              : "text-gray-300 opacity-0 group-hover:opacity-100 hover:text-amber-500 dark:text-gray-600 dark:hover:text-amber-400"
+                          }`}
+                          title={
+                            account.is_principal
+                              ? t("accounts.principal")
+                              : t("accounts.set_principal")
+                          }
+                        >
+                          <svg
+                            width="12"
+                            height="12"
+                            viewBox="0 0 12 12"
+                            fill={account.is_principal ? "currentColor" : "none"}
+                            stroke="currentColor"
+                            strokeWidth="1"
+                          >
+                            <path d="M6 0.5l1.6 3.3 3.7.5-2.7 2.6.6 3.7L6 8.9 2.8 10.6l.6-3.7L.7 4.3l3.7-.5L6 0.5z" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            focusAccount(account.character_name);
+                            onFocused(account.character_name);
+                          }}
+                          className="flex h-6 w-6 cursor-pointer items-center justify-center rounded text-gray-400 opacity-0 transition-colors group-hover:opacity-100 hover:text-brand-600 dark:text-gray-500 dark:hover:text-brand-400"
+                          title={t("accounts.focus_window")}
+                        >
+                          <svg
+                            width="14"
+                            height="14"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <circle cx="12" cy="12" r="3" />
+                            <path d="M12 1v4M12 19v4M1 12h4M19 12h4M4.2 4.2l2.8 2.8M17 17l2.8 2.8M4.2 19.8l2.8-2.8M17 7l2.8-2.8" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSkip(account.character_name);
+                          }}
+                          className="flex h-6 w-6 cursor-pointer items-center justify-center rounded text-gray-400 opacity-0 transition-colors group-hover:opacity-100 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400"
+                          title={t("accounts.skip")}
+                        >
+                          <svg
+                            width="13"
+                            height="13"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <circle cx="12" cy="12" r="10" />
+                            <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          {skipped.length > 0 && (
+            <div className="mt-3">
+              <h3 className="mb-1 text-xs font-medium tracking-wider text-gray-400 uppercase dark:text-gray-600">
+                {t("accounts.skipped_section")}
+              </h3>
+              <ul className="space-y-1 select-none">
+                {skipped.map((account) => (
+                  <li key={account.window_id}>
+                    <div className="group relative flex h-9 items-center overflow-hidden rounded-lg border border-gray-200 bg-gray-50 opacity-50 dark:border-gray-800 dark:bg-gray-900">
+                      {/* Avatar */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingName(
+                            editingName === account.character_name ? null : account.character_name,
+                          );
+                        }}
+                        className="mr-2 ml-4 flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-full border"
+                        style={{
+                          backgroundColor: account.icon_path
+                            ? "transparent"
+                            : (account.color ?? "#6b7280"),
+                          borderColor: account.color ?? "#d1d5db",
+                        }}
+                        title={t("accounts.customize")}
                       >
-                        <circle cx="12" cy="12" r="3" />
-                        <path d="M12 1v4M12 19v4M1 12h4M19 12h4M4.2 4.2l2.8 2.8M17 17l2.8 2.8M4.2 19.8l2.8-2.8M17 7l2.8-2.8" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
+                        {account.icon_path ? (
+                          <img
+                            src={`/icons/${account.icon_path}.png`}
+                            alt=""
+                            className="pointer-events-none h-full w-full object-cover"
+                          />
+                        ) : (
+                          <span className="text-[9px] leading-none font-bold text-white/80">
+                            {account.character_name[0]?.toUpperCase()}
+                          </span>
+                        )}
+                      </button>
+                      {/* Name */}
+                      <div className="min-w-0 flex-1">
+                        <span className="block truncate text-xs font-medium text-gray-500 dark:text-gray-500">
+                          {account.character_name}
+                        </span>
+                      </div>
+                      {/* Restore button */}
+                      <div className="ml-1 flex shrink-0 items-center gap-1 pr-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleUnskip(account.character_name);
+                          }}
+                          className="flex h-6 w-6 cursor-pointer items-center justify-center rounded text-gray-400 opacity-0 transition-colors group-hover:opacity-100 hover:text-brand-600 dark:text-gray-500 dark:hover:text-brand-400"
+                          title={t("accounts.unskip")}
+                        >
+                          <svg
+                            width="13"
+                            height="13"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                            <path d="M3 3v5h5" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </>
       )}
       {modalContent && createPortal(modalContent, document.body)}
     </div>

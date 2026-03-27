@@ -16,6 +16,9 @@
   "accounts.default_color": "Défaut",
   "accounts.icon": "Icône",
   "accounts.no_icon": "Aucune icône",
+  "accounts.skip": "Exclure de la rotation",
+  "accounts.unskip": "Remettre dans la rotation",
+  "accounts.skipped_section": "Ignorés",
   "accounts.next": "Compte suivant",
   "accounts.previous": "Compte précédent",
 
