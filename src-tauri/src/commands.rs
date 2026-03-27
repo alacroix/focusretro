@@ -311,13 +311,17 @@ pub fn check_permissions() -> PermissionStatus {
 }
 
 #[tauri::command]
-pub fn request_screen_recording() {
-    platform::request_screen_recording_permission();
+pub fn request_screen_recording(app: tauri::AppHandle) {
+    let _ = app.run_on_main_thread(|| {
+        platform::request_screen_recording_permission();
+    });
 }
 
 #[tauri::command]
-pub fn request_input_monitoring() {
-    platform::request_input_monitoring_permission();
+pub fn request_input_monitoring(app: tauri::AppHandle) {
+    let _ = app.run_on_main_thread(|| {
+        platform::request_input_monitoring_permission();
+    });
 }
 
 #[tauri::command]
