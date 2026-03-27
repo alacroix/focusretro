@@ -262,6 +262,10 @@ impl AppState {
     pub fn new(config_path: PathBuf) -> Self {
         let prefs = load_preferences(&config_path);
         info!("[Prefs] Loaded {} profiles", prefs.profiles.len());
+        Self::from_prefs(prefs, config_path)
+    }
+
+    pub fn from_prefs(prefs: Preferences, config_path: PathBuf) -> Self {
         // Start from loaded hotkeys, then add any default actions that are missing.
         // This ensures new actions (e.g. "radial") appear on first launch after an upgrade.
         let mut hotkeys = if prefs.hotkeys.is_empty() {

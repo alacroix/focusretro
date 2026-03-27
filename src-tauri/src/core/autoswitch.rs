@@ -206,6 +206,68 @@ fn focus_character_with_fallback(
     }
 }
 
+pub(crate) enum RouteAction {
+    Focus {
+        name: String,
+        auto_accept: bool,
+        event_type: String,
+    },
+    StoreMessage(StoredMessage),
+    Ignore,
+}
+
+pub(crate) fn route_event(event: &parser::GameEvent, state: &AppState) -> RouteAction {
+    match event {
+        parser::GameEvent::Turn(turn) => {
+            if !state.is_autoswitch_enabled() {
+                return RouteAction::Ignore;
+            }
+            RouteAction::Focus {
+                name: turn.character_name.clone(),
+                auto_accept: false,
+                event_type: "turn".into(),
+            }
+        }
+        parser::GameEvent::GroupInvite(invite) => {
+            if !state.is_group_invite_enabled() {
+                return RouteAction::Ignore;
+            }
+            if !state.has_account(&invite.inviter_name) {
+                return RouteAction::Ignore;
+            }
+            RouteAction::Focus {
+                name: invite.receiver_name.clone(),
+                auto_accept: state.is_auto_accept_enabled(),
+                event_type: "group_invite".into(),
+            }
+        }
+        parser::GameEvent::Trade(trade) => {
+            if !state.is_trade_enabled() {
+                return RouteAction::Ignore;
+            }
+            if !state.has_account(&trade.requester_name) {
+                return RouteAction::Ignore;
+            }
+            RouteAction::Focus {
+                name: trade.receiver_name.clone(),
+                auto_accept: state.is_auto_accept_enabled(),
+                event_type: "trade".into(),
+            }
+        }
+        parser::GameEvent::PrivateMessage(pm) => {
+            if !state.is_pm_enabled() {
+                return RouteAction::Ignore;
+            }
+            RouteAction::StoreMessage(StoredMessage {
+                receiver: pm.receiver_name.clone(),
+                sender: pm.sender_name.clone(),
+                message: pm.message.clone(),
+                timestamp: now_epoch_secs(),
+            })
+        }
+    }
+}
+
 fn start_notification_listener(handle: AppHandle, state: Arc<AppState>) {
     let listener = platform::create_notification_listener();
     let callback_handle = handle.clone();
@@ -227,97 +289,54 @@ fn start_notification_listener(handle: AppHandle, state: Arc<AppState>) {
                     }
                 };
 
-                match event {
-                    parser::GameEvent::Turn(turn) => {
-                        if !callback_state.is_autoswitch_enabled() {
-                            info!("[Autoswitch] autoswitch disabled, ignoring turn");
-                            return false;
+                match route_event(&event, &callback_state) {
+                    RouteAction::Focus {
+                        name,
+                        auto_accept,
+                        event_type,
+                    } => {
+                        match &event {
+                            parser::GameEvent::Turn(_) => {
+                                info!("[Autoswitch] Turn detected for: {}", name);
+                                let _ = callback_handle.emit("turn-switched", &name);
+                            }
+                            parser::GameEvent::GroupInvite(inv) => {
+                                info!(
+                                    "[Autoswitch] Group invite: {} invited by {}",
+                                    name, inv.inviter_name
+                                );
+                                let _ = callback_handle.emit("group-invite", &name);
+                            }
+                            parser::GameEvent::Trade(tr) => {
+                                info!(
+                                    "[Autoswitch] Trade request: {} from {}",
+                                    name, tr.requester_name
+                                );
+                                let _ = callback_handle.emit("trade-request", &name);
+                            }
+                            _ => {}
                         }
-                        info!("[Autoswitch] Turn detected for: {}", turn.character_name);
-                        let _ = callback_handle.emit("turn-switched", &turn.character_name);
                         focus_character_with_fallback(
-                            &turn.character_name,
-                            false,
+                            &name,
+                            auto_accept,
                             callback_state.clone(),
                             callback_handle.clone(),
-                            "turn".into(),
+                            event_type,
                             t_notification_ms,
                         );
                         true
                     }
-                    parser::GameEvent::GroupInvite(invite) => {
-                        if !callback_state.is_group_invite_enabled() {
-                            info!("[Autoswitch] group invite disabled, ignoring");
-                            return false;
-                        }
-                        if !callback_state.has_account(&invite.inviter_name) {
-                            info!(
-                                "[Autoswitch] group invite from unknown '{}', ignoring",
-                                invite.inviter_name
-                            );
-                            return false;
-                        }
-                        info!(
-                            "[Autoswitch] Group invite: {} invited by {}",
-                            invite.receiver_name, invite.inviter_name
-                        );
-                        let _ = callback_handle.emit("group-invite", &invite.receiver_name);
-                        let accept = callback_state.is_auto_accept_enabled();
-                        focus_character_with_fallback(
-                            &invite.receiver_name,
-                            accept,
-                            callback_state.clone(),
-                            callback_handle.clone(),
-                            "group_invite".into(),
-                            t_notification_ms,
-                        );
-                        true
-                    }
-                    parser::GameEvent::Trade(trade) => {
-                        if !callback_state.is_trade_enabled() {
-                            info!("[Autoswitch] trade disabled, ignoring");
-                            return false;
-                        }
-                        if !callback_state.has_account(&trade.requester_name) {
-                            info!(
-                                "[Autoswitch] trade from unknown '{}', ignoring",
-                                trade.requester_name
-                            );
-                            return false;
-                        }
-                        info!(
-                            "[Autoswitch] Trade request: {} from {}",
-                            trade.receiver_name, trade.requester_name
-                        );
-                        let _ = callback_handle.emit("trade-request", &trade.receiver_name);
-                        let accept = callback_state.is_auto_accept_enabled();
-                        focus_character_with_fallback(
-                            &trade.receiver_name,
-                            accept,
-                            callback_state.clone(),
-                            callback_handle.clone(),
-                            "trade".into(),
-                            t_notification_ms,
-                        );
-                        true
-                    }
-                    parser::GameEvent::PrivateMessage(pm) => {
-                        if !callback_state.is_pm_enabled() {
-                            info!("[Autoswitch] PM disabled, ignoring");
-                            return false;
-                        }
+                    RouteAction::StoreMessage(stored) => {
                         info!(
                             "[Autoswitch] PM from {} to {}: {}",
-                            pm.sender_name, pm.receiver_name, pm.message
+                            stored.sender, stored.receiver, stored.message
                         );
-                        let stored = StoredMessage {
-                            receiver: pm.receiver_name.clone(),
-                            sender: pm.sender_name.clone(),
-                            message: pm.message.clone(),
-                            timestamp: now_epoch_secs(),
-                        };
                         callback_state.add_message(stored.clone());
                         let _ = callback_handle.emit("new-pm", &stored);
+                        false
+                    }
+                    RouteAction::Ignore => {
+                        info!("[Autoswitch] event ignored");
                         false
                     }
                 }
