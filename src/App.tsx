@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { relaunch } from "@tauri-apps/plugin-process";
-import type { Update } from "@tauri-apps/plugin-updater";
+import { check, type Update } from "@tauri-apps/plugin-updater";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -113,7 +113,6 @@ function App() {
           if (consent === null) {
             setShowConsentModal(true);
           } else if (consent === true) {
-            const { check } = await import("@tauri-apps/plugin-updater");
             check()
               .then((u) => {
                 if (u) {
@@ -248,7 +247,6 @@ function App() {
     setUpdateConsentState(consent);
     setUpdateConsent(consent).catch(() => {});
     if (import.meta.env.VITE_UPDATER !== "false" && consent) {
-      const { check } = await import("@tauri-apps/plugin-updater");
       check()
         .then((u) => {
           if (u) {
@@ -260,7 +258,6 @@ function App() {
   };
 
   const handleCheckUpdate = async (): Promise<boolean> => {
-    const { check } = await import("@tauri-apps/plugin-updater");
     const u = await check();
     if (u) {
       window.scrollTo({ top: 0, behavior: "smooth" });
