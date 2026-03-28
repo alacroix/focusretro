@@ -656,6 +656,7 @@ impl AppState {
 
     /// Returns detected windows ordered active-first, skipped-last.
     /// Used for taskbar reordering so skipped accounts appear at the end.
+    #[cfg(target_os = "windows")]
     pub fn active_then_skipped_windows(&self) -> Vec<crate::platform::GameWindow> {
         let profiles = self.profiles.lock();
         let accounts = self.accounts.lock();
