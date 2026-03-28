@@ -63,6 +63,7 @@ function App() {
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [closeOs, setCloseOs] = useState<string>("windows");
   const [taskbarUngroup, setTaskbarUngroup] = useState(true);
+  const [iconStyle, setIconStyle] = useState<"classic" | "portrait">("classic");
   const taskbarIconCache = useRef<Map<number, string>>(new Map());
   const isWindows = navigator.userAgent.includes("Windows NT");
 
@@ -99,6 +100,7 @@ function App() {
         setHotkeys(s.hotkeys);
         setShowDebug(s.show_debug);
         if (isWindows) setTaskbarUngroup(s.taskbar_ungroup);
+        if (isWindows) setIconStyle((s.icon_style as "classic" | "portrait") ?? "classic");
         setThemeState(s.theme);
         applyThemeClass(s.theme);
         if (s.language && s.language !== i18n.language) {
@@ -132,7 +134,7 @@ function App() {
     };
   }, []);
 
-  // Apply taskbar icons whenever accounts or taskbarUngroup changes (Windows only)
+  // Apply taskbar icons whenever accounts, taskbarUngroup, or iconStyle changes (Windows only)
   useEffect(() => {
     if (!isWindows || !taskbarUngroup) {
       taskbarIconCache.current.clear();
@@ -144,17 +146,17 @@ function App() {
       if (!activeIds.has(id)) taskbarIconCache.current.delete(id);
     }
     for (const account of accounts) {
-      const key = `${account.icon_path ?? ""}|${account.color ?? ""}`;
+      const key = `${account.icon_path ?? ""}|${account.color ?? ""}|${iconStyle}|${account.is_skipped}`;
       if (taskbarIconCache.current.get(account.window_id) === key) continue;
       const windowId = account.window_id;
-      renderAccountIcon(account.icon_path, account.color)
+      renderAccountIcon(account.icon_path, account.color, iconStyle, account.is_skipped)
         .then((rgba) => applyWindowIcon(windowId, rgba))
         .then(() => {
           taskbarIconCache.current.set(windowId, key);
         })
         .catch(() => {});
     }
-  }, [accounts, taskbarUngroup]);
+  }, [accounts, taskbarUngroup, iconStyle]);
 
   // Render tray icon on mount and whenever autoswitch state changes.
   // Renders immediately with default state (active=true) so the dot appears
@@ -508,6 +510,8 @@ function App() {
             onCheckUpdate={handleCheckUpdate}
             taskbarUngroup={taskbarUngroup}
             onToggleTaskbarUngroup={setTaskbarUngroup}
+            iconStyle={iconStyle}
+            onIconStyleChange={setIconStyle}
             onHotkeysChange={setHotkeys}
           />
         )}

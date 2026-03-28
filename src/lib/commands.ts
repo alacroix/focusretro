@@ -42,6 +42,7 @@ export interface InitialState {
   theme: string;
   update_consent: boolean | null;
   taskbar_ungroup: boolean;
+  icon_style: string;
 }
 
 export function getInitialState(): Promise<InitialState> {
@@ -243,6 +244,14 @@ export function getTheme(): Promise<string> {
 
 export function setTheme(theme: string): Promise<void> {
   return invoke("set_theme", { theme });
+}
+
+export function getIconStyle(): Promise<string> {
+  return invoke("get_icon_style");
+}
+
+export function setIconStyle(style: string): Promise<void> {
+  return invoke("set_icon_style", { style });
 }
 
 export function getAvailableLayouts(): Promise<string[]> {

@@ -22,7 +22,9 @@ import {
   getCloseTotray,
   setCloseTotray as setCloseTotrayCmd,
   toggleTaskbarUngroup,
+  setIconStyle as setIconStyleCmd,
 } from "../lib/commands";
+import { renderAccountIcon } from "../lib/taskbarIcon";
 
 function ToggleRow({
   label,
@@ -281,6 +283,20 @@ function ThemeSelector({ theme, onChange }: { theme: string; onChange: (t: strin
   );
 }
 
+function IconStylePreview({ mode }: { mode: "classic" | "portrait" }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    renderAccountIcon("90", "#ef4444", mode, false).then((rgba) => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const ctx = canvas.getContext("2d")!;
+      const imageData = new ImageData(new Uint8ClampedArray(rgba), 24, 24);
+      ctx.putImageData(imageData, 0, 0);
+    });
+  }, [mode]);
+  return <canvas ref={canvasRef} width={24} height={24} className="h-6 w-6 rounded" />;
+}
+
 const KONAMI = [
   "ArrowUp",
   "ArrowUp",
@@ -304,6 +320,8 @@ function Settings({
   onCheckUpdate,
   taskbarUngroup,
   onToggleTaskbarUngroup,
+  iconStyle,
+  onIconStyleChange,
   onHotkeysChange,
 }: {
   showDebug: boolean;
@@ -315,6 +333,8 @@ function Settings({
   onCheckUpdate: () => Promise<boolean>;
   taskbarUngroup: boolean;
   onToggleTaskbarUngroup: (v: boolean) => void;
+  iconStyle: "classic" | "portrait";
+  onIconStyleChange: (style: "classic" | "portrait") => void;
   onHotkeysChange?: (bindings: HotkeyBinding[]) => void;
 }) {
   const { t, i18n } = useTranslation();
@@ -460,6 +480,37 @@ function Settings({
             onLabel={t("settings.on")}
             offLabel={t("settings.off")}
           />
+        )}
+        {navigator.userAgent.includes("Windows NT") && taskbarUngroup && (
+          <div className="py-2">
+            <div className="mb-2">
+              <span className="text-xs font-medium text-gray-800 dark:text-gray-200">
+                {t("settings.icon_style")}
+              </span>
+              <p className="mt-0.5 text-[11px] text-gray-500">{t("settings.icon_style_desc")}</p>
+            </div>
+            <div className="flex gap-2 [&>button]:flex-1">
+              {(["classic", "portrait"] as const).map((mode) => (
+                <button
+                  key={mode}
+                  onClick={async () => {
+                    await setIconStyleCmd(mode);
+                    onIconStyleChange(mode);
+                  }}
+                  className={`flex cursor-pointer flex-row items-center gap-2 rounded-lg border-2 px-3 py-2 transition-colors ${
+                    iconStyle === mode
+                      ? "border-brand-500 bg-brand-50 dark:bg-gray-800"
+                      : "border-gray-200 hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600"
+                  }`}
+                >
+                  <IconStylePreview mode={mode} />
+                  <span className="text-xs text-gray-700 dark:text-gray-300">
+                    {t(`settings.icon_style_${mode}`)}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
         )}
         <ToggleRow
           label={t("settings.pm")}

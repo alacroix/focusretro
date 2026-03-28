@@ -17,6 +17,7 @@ pub struct InitialState {
     pub theme: String,
     pub update_consent: Option<bool>,
     pub taskbar_ungroup: bool,
+    pub icon_style: String,
 }
 
 #[tauri::command]
@@ -42,7 +43,18 @@ pub fn get_initial_state(state: tauri::State<'_, Arc<AppState>>) -> InitialState
         theme: state.get_theme(),
         update_consent: state.get_update_consent(),
         taskbar_ungroup,
+        icon_style: state.get_icon_style(),
     }
+}
+
+#[tauri::command]
+pub fn get_icon_style(state: tauri::State<'_, Arc<AppState>>) -> String {
+    state.get_icon_style()
+}
+
+#[tauri::command]
+pub fn set_icon_style(state: tauri::State<'_, Arc<AppState>>, style: String) {
+    state.set_icon_style(style);
 }
 
 #[tauri::command]

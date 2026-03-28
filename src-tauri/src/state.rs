@@ -142,10 +142,16 @@ pub struct Preferences {
     #[cfg(target_os = "windows")]
     #[serde(default = "default_taskbar_ungroup")]
     pub taskbar_ungroup_enabled: bool,
+    #[serde(default = "default_icon_style")]
+    pub icon_style: String,
 }
 
 fn default_close_to_tray() -> bool {
     true
+}
+
+fn default_icon_style() -> String {
+    "classic".into()
 }
 
 #[cfg(target_os = "windows")]
@@ -171,6 +177,7 @@ impl Default for Preferences {
             #[cfg(target_os = "windows")]
             taskbar_ungroup_enabled: true,
             close_behavior_prompted: false,
+            icon_style: default_icon_style(),
         }
     }
 }
@@ -260,6 +267,7 @@ pub struct AppState {
     pub taskbar_aumid_cache: Mutex<std::collections::HashSet<isize>>,
     #[cfg(target_os = "windows")]
     pub taskbar_icon_handles: Mutex<std::collections::HashMap<isize, isize>>,
+    pub icon_style: Mutex<String>,
     /// Incremented whenever the account list or order changes.
     #[cfg(target_os = "windows")]
     pub taskbar_order_version: AtomicU64,
@@ -313,6 +321,7 @@ impl AppState {
             close_to_tray: AtomicBool::new(prefs.close_to_tray),
             close_behavior_prompted: AtomicBool::new(prefs.close_behavior_prompted),
             last_tray_snapshot: Mutex::new(None),
+            icon_style: Mutex::new(prefs.icon_style),
             #[cfg(target_os = "windows")]
             taskbar_ungroup_enabled: AtomicBool::new(prefs.taskbar_ungroup_enabled),
             #[cfg(target_os = "windows")]
@@ -343,6 +352,7 @@ impl AppState {
             close_behavior_prompted: self.close_behavior_prompted.load(Ordering::Relaxed),
             #[cfg(target_os = "windows")]
             taskbar_ungroup_enabled: self.taskbar_ungroup_enabled.load(Ordering::Relaxed),
+            icon_style: self.icon_style.lock().clone(),
         }
     }
 
@@ -466,6 +476,15 @@ impl AppState {
 
     pub fn set_theme(&self, theme: String) {
         *self.theme.lock() = theme;
+        self.save();
+    }
+
+    pub fn get_icon_style(&self) -> String {
+        self.icon_style.lock().clone()
+    }
+
+    pub fn set_icon_style(&self, style: String) {
+        *self.icon_style.lock() = style;
         self.save();
     }
 
