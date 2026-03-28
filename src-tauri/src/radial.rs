@@ -6,7 +6,7 @@ use tauri::{AppHandle, Emitter};
 // Radial geometry — must match RadialSelector.tsx constants
 pub const OUTER_R: f64 = 124.0;
 pub const INNER_R: f64 = 34.0;
-pub const RADIAL_WIN_SIZE: f64 = 350.0;
+pub const RADIAL_WIN_SIZE: f64 = 420.0;
 pub const RADIAL_WIN_CX: f64 = RADIAL_WIN_SIZE / 2.0;
 
 /// Compute the account segment index under the cursor, or None if outside the wheel.

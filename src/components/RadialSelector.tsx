@@ -91,7 +91,7 @@ export default function RadialSelector({ pos, hovered }: Props) {
             <feDropShadow dx="0" dy="4" stdDeviation="12" floodColor={shadow} floodOpacity="1" />
           </filter>
           <mask id="disc-mask">
-            <rect width={SIZE} height={SIZE} fill="white" />
+            <rect x={-60} y={-60} width={SIZE + 120} height={SIZE + 120} fill="white" />
             <circle cx={CX} cy={CY} r={INNER_R} fill="black" />
           </mask>
         </defs>
