@@ -2,7 +2,11 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>NSAccessibilityUsageDescription</key>
+	<string>Focus Retro needs Accessibility permission to detect in-game notifications and automatically switch focus to the right game window.</string>
 	<key>NSScreenRecordingUsageDescription</key>
 	<string>Focus Retro needs Screen Recording permission to detect Dofus Retro game windows and switch focus when it's your turn.</string>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>Focus Retro needs Apple Events permission to bring Dofus Retro game windows to the front when it's your turn to play.</string>
 </dict>
 </plist>
