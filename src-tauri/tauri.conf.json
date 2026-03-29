@@ -53,7 +53,8 @@
     "targets": ["app", "dmg", "nsis"],
     "createUpdaterArtifacts": true,
     "macOS": {
-      "signingIdentity": "-"
+      "signingIdentity": "-",
+      "entitlements": "./Entitlements.plist"
     },
     "icon": [
       "icons/Square30x30Logo.png",

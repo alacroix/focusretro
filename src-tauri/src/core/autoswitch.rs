@@ -280,13 +280,13 @@ pub(crate) fn route_event(event: &parser::GameEvent, state: &AppState) -> RouteA
 }
 
 fn start_notification_listener(handle: AppHandle, state: Arc<AppState>) {
-    let listener = platform::create_notification_listener();
-    let callback_handle = handle.clone();
-    let callback_state = state.clone();
+    std::thread::spawn(move || loop {
+        let listener = platform::create_notification_listener();
+        let callback_handle = handle.clone();
+        let callback_state = state.clone();
+        let mode_state = state.clone();
+        let mode_handle = handle.clone();
 
-    std::thread::spawn(move || {
-        let mode_state = callback_state.clone();
-        let mode_handle = callback_handle.clone();
         let result = listener.start(
             Box::new(move |segments| {
                 let t_notification_ms = now_millis();
@@ -358,8 +358,15 @@ fn start_notification_listener(handle: AppHandle, state: Arc<AppState>) {
             }),
         );
 
-        if let Err(e) = result {
-            error!("[Autoswitch] Notification listener failed: {}", e);
+        match result {
+            Err(e) => {
+                error!(
+                    "[Autoswitch] Notification listener failed: {}, retrying in 2s",
+                    e
+                );
+                std::thread::sleep(std::time::Duration::from_secs(2));
+            }
+            Ok(()) => break,
         }
     });
 }

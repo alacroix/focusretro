@@ -427,7 +427,7 @@ fn set_window_frame_ax(
 }
 
 fn activate_app(pid: i32) -> anyhow::Result<()> {
-    std::process::Command::new("osascript")
+    let output = std::process::Command::new("osascript")
         .args([
             "-e",
             &format!(
@@ -437,6 +437,13 @@ fn activate_app(pid: i32) -> anyhow::Result<()> {
         ])
         .output()
         .map_err(|e| anyhow::anyhow!("Failed to activate app: {}", e))?;
+    if !output.status.success() {
+        return Err(anyhow::anyhow!(
+            "osascript failed ({}): {}",
+            output.status,
+            String::from_utf8_lossy(&output.stderr)
+        ));
+    }
     Ok(())
 }
 
