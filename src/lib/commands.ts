@@ -226,8 +226,14 @@ export function clearTraces(): Promise<void> {
   return invoke("clear_traces");
 }
 
-export function getNotifMode(): Promise<string> {
-  return invoke("get_notif_mode");
+export interface ListenerHealth {
+  healthy: boolean;
+  restart_count: number;
+  mode: string;
+}
+
+export function getListenerHealth(): Promise<ListenerHealth> {
+  return invoke("get_listener_health");
 }
 
 export function getShowDebug(): Promise<boolean> {

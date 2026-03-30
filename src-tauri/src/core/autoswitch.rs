@@ -280,94 +280,119 @@ pub(crate) fn route_event(event: &parser::GameEvent, state: &AppState) -> RouteA
 }
 
 fn start_notification_listener(handle: AppHandle, state: Arc<AppState>) {
-    std::thread::spawn(move || loop {
-        let listener = platform::create_notification_listener();
-        let callback_handle = handle.clone();
-        let callback_state = state.clone();
-        let mode_state = state.clone();
-        let mode_handle = handle.clone();
+    std::thread::spawn(move || {
+        let is_first_start = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(true));
+        loop {
+            let listener = platform::create_notification_listener();
+            let callback_handle = handle.clone();
+            let callback_state = state.clone();
+            let mode_state = state.clone();
+            let mode_handle = handle.clone();
+            let is_first = std::sync::Arc::clone(&is_first_start);
 
-        let result = listener.start(
-            Box::new(move |segments| {
-                let t_notification_ms = now_millis();
-                debug!("[Autoswitch] Notification segments: {:?}", segments);
+            let result = listener.start(
+                Box::new(move |segments| {
+                    let t_notification_ms = now_millis();
+                    debug!("[Autoswitch] Notification segments: {:?}", segments);
 
-                let event = match parser::parse_game_event(&segments) {
-                    Some(e) => e,
-                    None => {
-                        info!("[Autoswitch] No game event matched");
-                        return false;
-                    }
-                };
-
-                match route_event(&event, &callback_state) {
-                    RouteAction::Focus {
-                        name,
-                        auto_accept,
-                        event_type,
-                    } => {
-                        match &event {
-                            parser::GameEvent::Turn(_) => {
-                                info!("[Autoswitch] Turn detected for: {}", name);
-                                let _ = callback_handle.emit("turn-switched", &name);
-                            }
-                            parser::GameEvent::GroupInvite(inv) => {
-                                info!(
-                                    "[Autoswitch] Group invite: {} invited by {}",
-                                    name, inv.inviter_name
-                                );
-                                let _ = callback_handle.emit("group-invite", &name);
-                            }
-                            parser::GameEvent::Trade(tr) => {
-                                info!(
-                                    "[Autoswitch] Trade request: {} from {}",
-                                    name, tr.requester_name
-                                );
-                                let _ = callback_handle.emit("trade-request", &name);
-                            }
-                            _ => {}
+                    let event = match parser::parse_game_event(&segments) {
+                        Some(e) => e,
+                        None => {
+                            info!("[Autoswitch] No game event matched");
+                            return false;
                         }
-                        focus_character_with_fallback(
-                            &name,
-                            auto_accept,
-                            callback_state.clone(),
-                            callback_handle.clone(),
-                            event_type,
-                            t_notification_ms,
-                        );
-                        true
-                    }
-                    RouteAction::StoreMessage(stored) => {
-                        info!(
-                            "[Autoswitch] PM from {} to {}: {}",
-                            stored.sender, stored.receiver, stored.message
-                        );
-                        callback_state.add_message(stored.clone());
-                        let _ = callback_handle.emit("new-pm", &stored);
-                        false
-                    }
-                    RouteAction::Ignore => {
-                        info!("[Autoswitch] event ignored");
-                        false
-                    }
-                }
-            }),
-            Box::new(move |mode| {
-                mode_state.set_notif_mode(mode.clone());
-                let _ = mode_handle.emit("notif-mode-changed", mode);
-            }),
-        );
+                    };
 
-        match result {
-            Err(e) => {
-                error!(
-                    "[Autoswitch] Notification listener failed: {}, retrying in 2s",
-                    e
-                );
-                std::thread::sleep(std::time::Duration::from_secs(2));
+                    match route_event(&event, &callback_state) {
+                        RouteAction::Focus {
+                            name,
+                            auto_accept,
+                            event_type,
+                        } => {
+                            match &event {
+                                parser::GameEvent::Turn(_) => {
+                                    info!("[Autoswitch] Turn detected for: {}", name);
+                                    let _ = callback_handle.emit("turn-switched", &name);
+                                }
+                                parser::GameEvent::GroupInvite(inv) => {
+                                    info!(
+                                        "[Autoswitch] Group invite: {} invited by {}",
+                                        name, inv.inviter_name
+                                    );
+                                    let _ = callback_handle.emit("group-invite", &name);
+                                }
+                                parser::GameEvent::Trade(tr) => {
+                                    info!(
+                                        "[Autoswitch] Trade request: {} from {}",
+                                        name, tr.requester_name
+                                    );
+                                    let _ = callback_handle.emit("trade-request", &name);
+                                }
+                                _ => {}
+                            }
+                            focus_character_with_fallback(
+                                &name,
+                                auto_accept,
+                                callback_state.clone(),
+                                callback_handle.clone(),
+                                event_type,
+                                t_notification_ms,
+                            );
+                            true
+                        }
+                        RouteAction::StoreMessage(stored) => {
+                            info!(
+                                "[Autoswitch] PM from {} to {}: {}",
+                                stored.sender, stored.receiver, stored.message
+                            );
+                            callback_state.add_message(stored.clone());
+                            let _ = callback_handle.emit("new-pm", &stored);
+                            false
+                        }
+                        RouteAction::Ignore => {
+                            info!("[Autoswitch] event ignored");
+                            false
+                        }
+                    }
+                }),
+                Box::new(move |mode: String| {
+                    mode_state.set_notif_mode(mode.clone());
+                    mode_state.set_listener_healthy(true);
+                    if !is_first.swap(false, std::sync::atomic::Ordering::Relaxed) {
+                        let ts = now_millis();
+                        mode_state.add_trace(TraceEntry {
+                            event_type: "listener_reconnect".into(),
+                            character_name: String::new(),
+                            t_notification_ms: ts,
+                            t_focus_done_ms: ts,
+                        });
+                        let _ = mode_handle.emit("trace-added", ());
+                    }
+                    let _ = mode_handle.emit("notif-mode-changed", mode);
+                }),
+            );
+
+            match result {
+                Err(e) => {
+                    error!(
+                        "[Autoswitch] Notification listener failed: {}, retrying in 2s",
+                        e
+                    );
+                    state.set_listener_healthy(false);
+                    state.increment_listener_restart_count();
+                    let ts = now_millis();
+                    state.add_trace(TraceEntry {
+                        event_type: "notification_center_restart".into(),
+                        character_name: e.to_string(),
+                        t_notification_ms: ts,
+                        t_focus_done_ms: ts,
+                    });
+                    let _ = handle.emit("trace-added", ());
+                    std::thread::sleep(std::time::Duration::from_secs(2));
+                }
+                Ok(()) => break,
             }
-            Ok(()) => break,
-        }
+        } // end loop
     });
 }
 

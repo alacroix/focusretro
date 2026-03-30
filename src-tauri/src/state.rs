@@ -3,7 +3,7 @@ use log::{error, info};
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct TraySnapshot {
@@ -256,6 +256,8 @@ pub struct AppState {
     pub language: Mutex<String>,
     pub traces: Mutex<Vec<TraceEntry>>,
     pub notif_mode: Mutex<String>,
+    pub listener_healthy: AtomicBool,
+    pub listener_restart_count: AtomicU32,
     pub theme: Mutex<String>,
     pub update_check_consent: Mutex<Option<bool>>,
     pub close_to_tray: AtomicBool,
@@ -316,6 +318,8 @@ impl AppState {
             language: Mutex::new(prefs.language),
             traces: Mutex::new(Vec::new()),
             notif_mode: Mutex::new("unknown".into()),
+            listener_healthy: AtomicBool::new(false),
+            listener_restart_count: AtomicU32::new(0),
             theme: Mutex::new(prefs.theme),
             update_check_consent: Mutex::new(prefs.update_check_consent),
             close_to_tray: AtomicBool::new(prefs.close_to_tray),
@@ -876,6 +880,22 @@ impl AppState {
 
     pub fn get_notif_mode(&self) -> String {
         self.notif_mode.lock().clone()
+    }
+
+    pub fn set_listener_healthy(&self, healthy: bool) {
+        self.listener_healthy.store(healthy, Ordering::Relaxed);
+    }
+
+    pub fn increment_listener_restart_count(&self) {
+        self.listener_restart_count.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub fn get_listener_health_snapshot(&self) -> (bool, u32, String) {
+        (
+            self.listener_healthy.load(Ordering::Relaxed),
+            self.listener_restart_count.load(Ordering::Relaxed),
+            self.get_notif_mode(),
+        )
     }
 
     pub fn get_update_consent(&self) -> Option<bool> {

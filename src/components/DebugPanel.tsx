@@ -1,7 +1,13 @@
 import { listen } from "@tauri-apps/api/event";
 import { useEffect, useState } from "react";
 
-import { TraceEntry, getTraces, clearTraces, getNotifMode } from "../lib/commands";
+import {
+  TraceEntry,
+  getTraces,
+  clearTraces,
+  getListenerHealth,
+  ListenerHealth,
+} from "../lib/commands";
 
 function latencyColor(ms: number): string {
   if (ms < 50) return "text-emerald-600 dark:text-emerald-400";
@@ -22,6 +28,8 @@ function eventLabel(type: string): string {
   if (type === "turn") return "Turn";
   if (type === "group_invite") return "Group invite";
   if (type === "trade") return "Trade";
+  if (type === "notification_center_restart") return "NC restarted";
+  if (type === "listener_reconnect") return "Reconnected";
   return type;
 }
 
@@ -32,19 +40,31 @@ function eventBadge(type: string): string {
     return "bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-900/60 dark:text-emerald-300 dark:border-emerald-700/50";
   if (type === "trade")
     return "bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-900/60 dark:text-amber-300 dark:border-amber-700/50";
+  if (type === "notification_center_restart")
+    return "bg-red-50 text-red-700 border border-red-200 dark:bg-red-900/60 dark:text-red-300 dark:border-red-700/50";
+  if (type === "listener_reconnect")
+    return "bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-900/60 dark:text-emerald-300 dark:border-emerald-700/50";
   return "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300";
 }
 
 export default function DebugPanel() {
   const [traces, setTraces] = useState<TraceEntry[]>([]);
-  const [notifMode, setNotifMode] = useState<string>("unknown");
+  const [health, setHealth] = useState<ListenerHealth>({
+    healthy: false,
+    restart_count: 0,
+    mode: "unknown",
+  });
   const reload = () => getTraces().then(setTraces);
+  const reloadHealth = () => getListenerHealth().then(setHealth);
 
   useEffect(() => {
     reload();
-    getNotifMode().then(setNotifMode);
-    const unlistenTrace = listen("trace-added", reload);
-    const unlistenMode = listen<string>("notif-mode-changed", (e) => setNotifMode(e.payload));
+    reloadHealth();
+    const unlistenTrace = listen("trace-added", () => {
+      reload();
+      reloadHealth();
+    });
+    const unlistenMode = listen<string>("notif-mode-changed", () => reloadHealth());
     return () => {
       unlistenTrace.then((f) => f());
       unlistenMode.then((f) => f());
@@ -64,23 +84,28 @@ export default function DebugPanel() {
           </h2>
           <span
             className={`rounded border px-1.5 py-0.5 text-[10px] font-medium ${
-              notifMode === "event"
+              health.mode === "event"
                 ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-700/50 dark:bg-emerald-900/60 dark:text-emerald-300"
-                : notifMode === "poll"
+                : health.mode === "poll"
                   ? "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-700/50 dark:bg-amber-900/60 dark:text-amber-300"
-                  : notifMode === "poll-db"
+                  : health.mode === "poll-db"
                     ? "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-700/50 dark:bg-amber-900/60 dark:text-amber-300"
                     : "border-gray-200 bg-gray-100 text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-500"
             }`}
           >
-            {notifMode === "event"
+            {health.mode === "event"
               ? "event-driven"
-              : notifMode === "poll"
+              : health.mode === "poll"
                 ? "polling 100ms"
-                : notifMode === "poll-db"
+                : health.mode === "poll-db"
                   ? "polling DB 200ms"
-                  : notifMode}
+                  : health.mode}
           </span>
+          {health.restart_count > 0 && (
+            <span className="rounded border border-red-200 bg-red-50 px-1.5 py-0.5 text-[10px] font-medium text-red-600 dark:border-red-700/50 dark:bg-red-900/60 dark:text-red-300">
+              {health.restart_count} restart{health.restart_count > 1 ? "s" : ""}
+            </span>
+          )}
         </div>
         <button
           onClick={handleClear}
@@ -112,6 +137,9 @@ export default function DebugPanel() {
               <tbody>
                 {reversed.map((t, i) => {
                   const total = t.t_focus_done_ms - t.t_notification_ms;
+                  const isSystemEvent =
+                    t.event_type === "notification_center_restart" ||
+                    t.event_type === "listener_reconnect";
                   return (
                     <tr
                       key={i}
@@ -131,9 +159,9 @@ export default function DebugPanel() {
                         {t.character_name}
                       </td>
                       <td
-                        className={`px-2 py-1.5 text-right font-mono font-semibold ${latencyColor(total)}`}
+                        className={`px-2 py-1.5 text-right font-mono font-semibold ${isSystemEvent ? "text-gray-400 dark:text-gray-600" : latencyColor(total)}`}
                       >
-                        {total}ms
+                        {isSystemEvent ? "-" : `${total}ms`}
                       </td>
                     </tr>
                   );

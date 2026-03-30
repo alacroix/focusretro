@@ -273,6 +273,10 @@ impl NotificationListener for MacNotificationListener {
         );
         self.running.store(true, Ordering::Relaxed);
 
+        let initial_pid = Some(pid);
+        let cancel = Arc::new(AtomicBool::new(false));
+        let pid_changed = Arc::new(AtomicBool::new(false));
+
         let ctx = Box::new(CallbackContext { on_notification });
         let ctx_ptr = Box::into_raw(ctx) as *mut c_void;
 
@@ -317,11 +321,41 @@ impl NotificationListener for MacNotificationListener {
                 kCFRunLoopDefaultMode,
             );
 
+            // Spawn PID watchdog: if NotificationCenter restarts, its PID changes.
+            // The old AXObserver silently stops receiving events. Detect this and stop
+            // the CFRunLoop so the autoswitch retry loop can recreate the observer.
+            //
+            // CFRunLoopRef is !Send, so we pass the address as a usize (Send) and cast back.
+            // Safety: CFRunLoopStop is documented as thread-safe.
+            let run_loop_addr: usize = CFRunLoopGetCurrent() as usize;
+            let cancel_clone = Arc::clone(&cancel);
+            let pid_changed_clone = Arc::clone(&pid_changed);
+
+            std::thread::spawn(move || loop {
+                std::thread::sleep(std::time::Duration::from_secs(2));
+                if cancel_clone.load(Ordering::Relaxed) {
+                    break;
+                }
+                if find_notification_center_pid() != initial_pid {
+                    info!(
+                        "[NotificationListener] NotificationCenter PID changed — stopping CFRunLoop for reconnect"
+                    );
+                    pid_changed_clone.store(true, Ordering::Relaxed);
+                    CFRunLoopStop(run_loop_addr as CFRunLoopRef);
+                    break;
+                }
+            });
+
             info!(
                 "[NotificationListener] AXObserver attached to CFRunLoop, listening for banners..."
             );
             CFRunLoopRun();
+            cancel.store(true, Ordering::Relaxed);
             info!("[NotificationListener] CFRunLoop exited");
+        }
+
+        if pid_changed.load(Ordering::Relaxed) {
+            return Err(anyhow::anyhow!("NotificationCenter restarted"));
         }
 
         Ok(())

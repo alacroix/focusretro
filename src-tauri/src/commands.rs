@@ -426,9 +426,21 @@ pub fn clear_traces(state: tauri::State<'_, Arc<AppState>>) {
     state.clear_traces();
 }
 
+#[derive(Serialize)]
+pub struct ListenerHealthSnapshot {
+    pub healthy: bool,
+    pub restart_count: u32,
+    pub mode: String,
+}
+
 #[tauri::command]
-pub fn get_notif_mode(state: tauri::State<'_, Arc<AppState>>) -> String {
-    state.get_notif_mode()
+pub fn get_listener_health(state: tauri::State<'_, Arc<AppState>>) -> ListenerHealthSnapshot {
+    let (healthy, restart_count, mode) = state.get_listener_health_snapshot();
+    ListenerHealthSnapshot {
+        healthy,
+        restart_count,
+        mode,
+    }
 }
 
 #[tauri::command]
