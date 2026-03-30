@@ -123,6 +123,28 @@ fn extract_segments(listener: &UserNotificationListener, notif_id: u32) -> Optio
     } else {
         format!("{} {}", title, body)
     };
+    // Dismiss this notification from the Action Center if it comes from a Dofus app.
+    // We dismiss all Dofus toasts regardless of whether the text matches a game event
+    // pattern — any Dofus notification that reached this point was detected and forwarded
+    // to the callback, so keeping it visible in the Action Center only causes stacking lag.
+    // Non-Dofus notifications (other apps) are left untouched.
+    let is_dofus = notif
+        .AppInfo()
+        .and_then(|a| a.DisplayInfo())
+        .and_then(|d| d.DisplayName())
+        .map(|n| n.to_string().to_ascii_lowercase().contains("dofus"))
+        .unwrap_or(false);
+    if is_dofus {
+        if let Err(e) = listener.RemoveNotification(notif_id) {
+            warn!(
+                "[WinNotif] RemoveNotification({}) failed: {:?}",
+                notif_id, e
+            );
+        } else {
+            log::debug!("[WinNotif] Dismissed notification {}", notif_id);
+        }
+    }
+
     // segments[0]: "Dofus Retro" is used as the source tag on Windows (both WinRT and DB paths).
     // The parser never reads segments[0] — it iterates in reverse over segments[1..] — so this
     // differs from the macOS convention ("Notification Center") without affecting behavior.
@@ -354,23 +376,25 @@ impl NotificationListener for WinNotificationListener {
                 return;
             }
 
-            // Shared seen_ids between event handler and poll loop so they never
-            // double-fire the same notification.
-            let seen_ids = Arc::new(Mutex::new(HashSet::<u32>::new()));
+            // Tracks which notification IDs were present in the last poll snapshot.
+            // Plain HashSet — only accessed from this STA thread (no sharing with event handler).
+            let mut seen_ids = HashSet::<u32>::new();
 
             // Seed with notifications already present so we don't replay old ones.
             if let Ok(op) = listener.GetNotificationsAsync(NotificationKinds::Toast) {
                 if let Ok(existing) = op.get() {
                     let count = existing.Size().unwrap_or(0);
-                    let mut ids = seen_ids.lock();
                     for i in 0..count {
                         if let Ok(n) = existing.GetAt(i) {
                             if let Ok(id) = n.Id() {
-                                ids.insert(id);
+                                seen_ids.insert(id);
                             }
                         }
                     }
-                    info!("[WinNotif] Seeded {} existing notification IDs", ids.len());
+                    info!(
+                        "[WinNotif] Seeded {} existing notification IDs",
+                        seen_ids.len()
+                    );
                 }
             }
 
@@ -393,12 +417,9 @@ impl NotificationListener for WinNotificationListener {
                 info!("[WinNotif] Processor thread exiting");
             });
 
-            // Try event-based detection first (requires MSIX package identity — falls back to
-            // polling if unavailable). The event handler only marks the ID as seen so the poll
-            // loop picks it up on the next cycle via GetNotificationsAsync (still on the STA
-            // thread). We do not call GetNotification from the MTA thread-pool callback to avoid
-            // the same RPC_E_WRONG_THREAD issue.
-            let event_seen_ids = Arc::clone(&seen_ids);
+            // Subscribe to NotificationChanged if available (requires MSIX package identity).
+            // The handler only logs — actual extraction happens on the STA poll thread because
+            // GetNotification cannot be called from an MTA thread-pool callback (RPC_E_WRONG_THREAD).
             let event_result = listener.NotificationChanged(&TypedEventHandler::<
                 UserNotificationListener,
                 UserNotificationChangedEventArgs,
@@ -406,15 +427,14 @@ impl NotificationListener for WinNotificationListener {
                 if let Some(args) = &*args {
                     if args.ChangeKind()? == UserNotificationChangedKind::Added {
                         let id = args.UserNotificationId()?;
-                        // Insert but do NOT extract segments here — extraction happens on the
-                        // STA poll thread. Removing the ID from seen_ids is intentionally
-                        // skipped: the poll loop will call extract_segments for any ID not yet
-                        // seen, so we must not pre-insert it here.
+                        // Detection and extraction happen on the STA poll thread — we cannot
+                        // call GetNotification here (MTA callback, RPC_E_WRONG_THREAD).
+                        // For now just log; a future improvement could wake the poll loop early
+                        // via a condvar instead of waiting for the next sleep to expire.
                         info!(
-                            "[WinNotif] Event: new notification ID {} (deferred to poll)",
+                            "[WinNotif] Event: notification {} added (deferred to poll)",
                             id
                         );
-                        let _ = id; // future: wake poll early via a condvar when MSIX is enabled
                     }
                 }
                 Ok(())
@@ -423,9 +443,13 @@ impl NotificationListener for WinNotificationListener {
             // Keep the token alive for the entire poll loop — dropping it would unregister the
             // event handler before it ever fires. Using `ok()` instead of a match arm prevents
             // the token from being scoped to the arm and dropped prematurely.
-            let _event_token = event_result.ok();
-            let poll_interval = if _event_token.is_some() {
-                info!("[WinNotif] Subscribed to NotificationChanged — poll is backup only (200ms)");
+            let event_token = event_result.ok();
+            let poll_interval = if event_token.is_some() {
+                // Event subscription succeeded but the handler only logs — it cannot call
+                // GetNotification from the MTA thread-pool callback (RPC_E_WRONG_THREAD).
+                // Detection still relies on the poll loop; the 200ms interval is relaxed
+                // because event mode signals the platform is more capable (MSIX/Win11).
+                info!("[WinNotif] Subscribed to NotificationChanged (event mode, 200ms poll)");
                 on_mode("event".into());
                 std::time::Duration::from_millis(200)
             } else {
@@ -457,24 +481,27 @@ impl NotificationListener for WinNotificationListener {
                 };
 
                 let count = notifications.Size().unwrap_or(0);
-                // Collect new IDs with the lock held (fast), then release before WinRT calls.
+                // Diff the live list against the previous snapshot, then replace seen_ids
+                // with the current snapshot. This bounds memory to however many notifications
+                // are actually in the Action Center at this moment — dismissed notifications
+                // fall out naturally rather than accumulating over a long game session.
                 let mut new_notif_ids: Vec<u32> = Vec::new();
-                {
-                    let mut ids = seen_ids.lock();
-                    for i in 0..count {
-                        let notif: UserNotification = match notifications.GetAt(i) {
-                            Ok(n) => n,
-                            Err(_) => continue,
-                        };
-                        let id = match notif.Id() {
-                            Ok(id) => id,
-                            Err(_) => continue,
-                        };
-                        if ids.insert(id) {
-                            new_notif_ids.push(id);
-                        }
+                let mut current_ids = HashSet::new();
+                for i in 0..count {
+                    let notif: UserNotification = match notifications.GetAt(i) {
+                        Ok(n) => n,
+                        Err(_) => continue,
+                    };
+                    let id = match notif.Id() {
+                        Ok(id) => id,
+                        Err(_) => continue,
+                    };
+                    if !seen_ids.contains(&id) {
+                        new_notif_ids.push(id);
                     }
+                    current_ids.insert(id);
                 }
+                seen_ids = current_ids;
 
                 if !new_notif_ids.is_empty() {
                     info!(

@@ -68,6 +68,7 @@ windows = { version = "0.61", features = [
   "UI_Notifications_Management",
   "UI_Notifications",
   "Foundation_Collections",
+  "ApplicationModel", # AppInfo/AppDisplayInfo::DisplayName for Dofus notification filter
 ] }
 
 [dev-dependencies]
