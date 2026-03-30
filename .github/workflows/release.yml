@@ -60,8 +60,12 @@ jobs:
           releaseBody: |
             See the assets below to download and install Focus Retro.
 
-            **macOS**: download the `.dmg`
-            **Windows**: download the `.msi` or `.exe`
+            **macOS**: download the `.dmg` for your chip - `aarch64` for Apple Silicon (M1+) or `x86_64` for Intel.
+            **Windows**: download and run the `.exe` installer.
+
+            The `_offline` variants are identical but with auto-update disabled - no outbound network connections.
+
+            > The `.app.tar.gz` and `.sig` files are used for auto-updates and can be ignored.
           args: ${{ matrix.args }}
 
       - name: Attest macOS build provenance
