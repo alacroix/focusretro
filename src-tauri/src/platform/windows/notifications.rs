@@ -2,7 +2,7 @@ use crate::platform::NotificationListener;
 use log::{error, info, warn};
 use parking_lot::Mutex;
 use std::collections::HashSet;
-use std::sync::{Arc, LazyLock};
+use std::sync::{mpsc, Arc, LazyLock};
 
 use regex::Regex;
 
@@ -13,7 +13,9 @@ use windows::core::HSTRING;
 use windows::Foundation::TypedEventHandler;
 use windows::Win32::Foundation::{LPARAM, WPARAM};
 use windows::Win32::System::Com::{CoInitializeEx, CoUninitialize, COINIT_APARTMENTTHREADED};
-use windows::Win32::System::Threading::GetCurrentThreadId;
+use windows::Win32::System::Threading::{
+    GetCurrentThread, GetCurrentThreadId, SetThreadPriority, THREAD_PRIORITY_ABOVE_NORMAL,
+};
 use windows::Win32::UI::WindowsAndMessaging::{PostThreadMessageW, WM_QUIT};
 use windows::UI::Notifications::Management::{
     UserNotificationListener, UserNotificationListenerAccessStatus,
@@ -40,12 +42,17 @@ impl WinNotificationListener {
     }
 }
 
-fn process_notification(listener: &UserNotificationListener, notif_id: u32, cb: &SyncCallback) {
+/// Extract text segments from a notification on the calling thread.
+///
+/// Must be called on the same STA thread that owns `listener` — `GetNotification` cannot
+/// be marshaled to a different apartment without a running message pump, which would cause
+/// `RPC_E_WRONG_THREAD` (0x8001010E). Only the autoswitch callback is dispatched off-thread.
+fn extract_segments(listener: &UserNotificationListener, notif_id: u32) -> Option<Vec<String>> {
     let notif = match listener.GetNotification(notif_id) {
         Ok(n) => n,
         Err(e) => {
             error!("[WinNotif] GetNotification({}) failed: {:?}", notif_id, e);
-            return;
+            return None;
         }
     };
 
@@ -53,7 +60,7 @@ fn process_notification(listener: &UserNotificationListener, notif_id: u32, cb: 
         Ok(n) => n,
         Err(e) => {
             error!("[WinNotif] notif.Notification() failed: {:?}", e);
-            return;
+            return None;
         }
     };
 
@@ -61,7 +68,7 @@ fn process_notification(listener: &UserNotificationListener, notif_id: u32, cb: 
         Ok(v) => v,
         Err(e) => {
             error!("[WinNotif] notification.Visual() failed: {:?}", e);
-            return;
+            return None;
         }
     };
 
@@ -69,7 +76,7 @@ fn process_notification(listener: &UserNotificationListener, notif_id: u32, cb: 
         Ok(b) => b,
         Err(e) => {
             error!("[WinNotif] GetBinding(ToastGeneric) failed: {:?}", e);
-            return;
+            return None;
         }
     };
 
@@ -77,7 +84,7 @@ fn process_notification(listener: &UserNotificationListener, notif_id: u32, cb: 
         Ok(e) => e,
         Err(e) => {
             error!("[WinNotif] GetTextElements() failed: {:?}", e);
-            return;
+            return None;
         }
     };
 
@@ -104,40 +111,25 @@ fn process_notification(listener: &UserNotificationListener, notif_id: u32, cb: 
         }
     }
 
-    if !texts.is_empty() {
-        let title = texts[0].clone();
-        let body = texts.get(1).cloned().unwrap_or_default();
-        let combined = if body.is_empty() {
-            title.clone()
-        } else {
-            format!("{} {}", title, body)
-        };
-        // segments[0]: "Dofus Retro" is used as the source tag on Windows (both WinRT and DB paths).
-        // The parser never reads segments[0] — it iterates in reverse over segments[1..] — so this
-        // differs from the macOS convention ("Notification Center") without affecting behavior.
-        let segments = vec!["Dofus Retro".to_string(), combined, title, body];
-        (cb.0)(segments);
-    } else {
-        warn!(
-            "[WinNotif] Notification {} had no text, skipping callback",
-            notif_id
-        );
+    if texts.is_empty() {
+        warn!("[WinNotif] Notification {} had no text, skipping", notif_id);
+        return None;
     }
+
+    let title = texts[0].clone();
+    let body = texts.get(1).cloned().unwrap_or_default();
+    let combined = if body.is_empty() {
+        title.clone()
+    } else {
+        format!("{} {}", title, body)
+    };
+    // segments[0]: "Dofus Retro" is used as the source tag on Windows (both WinRT and DB paths).
+    // The parser never reads segments[0] — it iterates in reverse over segments[1..] — so this
+    // differs from the macOS convention ("Notification Center") without affecting behavior.
+    Some(vec!["Dofus Retro".to_string(), combined, title, body])
 }
 
-fn seed_last_id_from_db(db_path: &std::path::Path) -> u64 {
-    use rusqlite::{Connection, OpenFlags};
-    let conn = match Connection::open_with_flags(
-        db_path,
-        OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
-    ) {
-        Ok(c) => c,
-        Err(e) => {
-            warn!("[WinNotif] seed: cannot open DB: {:?}", e);
-            return 0;
-        }
-    };
-    let _ = conn.busy_timeout(std::time::Duration::from_millis(1000));
+fn seed_last_id(conn: &rusqlite::Connection) -> u64 {
     conn.query_row("SELECT COALESCE(MAX(Id), 0) FROM Notification", [], |row| {
         row.get::<_, i64>(0)
     })
@@ -145,27 +137,19 @@ fn seed_last_id_from_db(db_path: &std::path::Path) -> u64 {
     .unwrap_or(0)
 }
 
-fn poll_db_notifications(db_path: &std::path::Path, last_id: &mut u64, cb: &SyncCallback) {
-    use rusqlite::{Connection, OpenFlags};
-    let conn = match Connection::open_with_flags(
-        db_path,
-        OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
-    ) {
-        Ok(c) => c,
-        Err(e) => {
-            warn!("[WinNotif] poll: cannot open DB: {:?}", e);
-            return;
-        }
-    };
-    let _ = conn.busy_timeout(std::time::Duration::from_millis(1000));
-
+/// Returns `false` if the connection appears broken (caller should reopen).
+fn poll_db_notifications(
+    conn: &rusqlite::Connection,
+    last_id: &mut u64,
+    cb: &SyncCallback,
+) -> bool {
     let mut stmt = match conn
         .prepare("SELECT Id, CAST(Payload AS TEXT) FROM Notification WHERE Id > ?1 ORDER BY Id ASC")
     {
         Ok(s) => s,
         Err(e) => {
             warn!("[WinNotif] poll: prepare failed: {:?}", e);
-            return;
+            return false;
         }
     };
 
@@ -175,7 +159,7 @@ fn poll_db_notifications(db_path: &std::path::Path, last_id: &mut u64, cb: &Sync
         Ok(mapped) => mapped.filter_map(|r| r.ok()).collect(),
         Err(e) => {
             warn!("[WinNotif] poll: query failed: {:?}", e);
-            return;
+            return false;
         }
     };
 
@@ -211,6 +195,7 @@ fn poll_db_notifications(db_path: &std::path::Path, last_id: &mut u64, cb: &Sync
             *last_id = id;
         }
     }
+    true
 }
 
 impl NotificationListener for WinNotificationListener {
@@ -222,14 +207,31 @@ impl NotificationListener for WinNotificationListener {
         let thread_id_store = Arc::clone(&self.thread_id);
         let callback = Arc::new(SyncCallback(on_notification));
 
+        // `done_tx` is sent exactly once when the listener thread exits:
+        //   Ok(())  — clean shutdown via WM_QUIT
+        //   Err(_)  — unexpected failure (API error, DB unavailable, etc.)
+        //
+        // `start()` blocks on `done_rx` so the watchdog in autoswitch.rs can detect
+        // thread exit and retry on error, matching the macOS AXObserver reconnect behavior.
+        let (done_tx, done_rx) = mpsc::channel::<anyhow::Result<()>>();
+
         std::thread::spawn(move || {
             let hr = unsafe { CoInitializeEx(None, COINIT_APARTMENTTHREADED) };
             if hr.is_err() {
                 error!("[WinNotif] CoInitializeEx failed: {:?}", hr);
+                done_tx
+                    .send(Err(anyhow::anyhow!("CoInitializeEx failed: {:?}", hr)))
+                    .ok();
                 return;
             }
             // Guard covers all return paths in this thread closure.
             let _com = crate::platform::OnDrop::new(|| unsafe { CoUninitialize() });
+            // Boost scheduling priority so poll wakeups are prompt even under system load.
+            if let Err(e) =
+                unsafe { SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL) }
+            {
+                warn!("[WinNotif] SetThreadPriority failed: {:?}", e);
+            }
 
             let tid = unsafe { GetCurrentThreadId() };
             {
@@ -241,6 +243,12 @@ impl NotificationListener for WinNotificationListener {
                 Ok(l) => l,
                 Err(e) => {
                     error!("[WinNotif] Failed to get UserNotificationListener: {:?}", e);
+                    done_tx
+                        .send(Err(anyhow::anyhow!(
+                            "UserNotificationListener::Current() failed: {:?}",
+                            e
+                        )))
+                        .ok();
                     return;
                 }
             };
@@ -249,6 +257,9 @@ impl NotificationListener for WinNotificationListener {
                 Ok(s) => s,
                 Err(e) => {
                     error!("[WinNotif] Failed to request notification access: {:?}", e);
+                    done_tx
+                        .send(Err(anyhow::anyhow!("RequestAccessAsync failed: {:?}", e)))
+                        .ok();
                     return;
                 }
             };
@@ -267,17 +278,66 @@ impl NotificationListener for WinNotificationListener {
                         .join("wpndatabase.db"),
                     Err(_) => {
                         error!("[WinNotif] LOCALAPPDATA not set");
+                        done_tx
+                            .send(Err(anyhow::anyhow!("LOCALAPPDATA env var not set")))
+                            .ok();
                         return;
                     }
                 };
 
+                use rusqlite::{Connection, OpenFlags};
+                let mut conn = match Connection::open_with_flags(
+                    &db_path,
+                    OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+                ) {
+                    Ok(c) => c,
+                    Err(e) => {
+                        error!("[WinNotif] poll-db: cannot open DB: {:?}", e);
+                        done_tx
+                            .send(Err(anyhow::anyhow!("Cannot open notification DB: {:?}", e)))
+                            .ok();
+                        return;
+                    }
+                };
+                let _ = conn.busy_timeout(std::time::Duration::from_millis(1000));
+
                 on_mode("poll-db".into());
-                let mut last_id = seed_last_id_from_db(&db_path);
+                let mut last_id = seed_last_id(&conn);
                 let poll_interval = std::time::Duration::from_millis(200);
+                let mut consecutive_failures: u32 = 0;
 
                 loop {
                     std::thread::sleep(poll_interval);
-                    poll_db_notifications(&db_path, &mut last_id, &callback);
+
+                    if poll_db_notifications(&conn, &mut last_id, &callback) {
+                        consecutive_failures = 0;
+                    } else {
+                        consecutive_failures += 1;
+                        // After 3 consecutive failures (~600ms), the connection is likely stale
+                        // (e.g., notification service restarted the DB after sleep/wake).
+                        // Reopen to recover automatically.
+                        if consecutive_failures >= 3 {
+                            warn!(
+                                "[WinNotif] poll-db: {} consecutive failures, reopening connection",
+                                consecutive_failures
+                            );
+                            match Connection::open_with_flags(
+                                &db_path,
+                                OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+                            ) {
+                                Ok(new_conn) => {
+                                    let _ = new_conn
+                                        .busy_timeout(std::time::Duration::from_millis(1000));
+                                    conn = new_conn;
+                                    consecutive_failures = 0;
+                                    info!("[WinNotif] poll-db: connection reopened successfully");
+                                }
+                                Err(e) => {
+                                    warn!("[WinNotif] poll-db: reopen failed: {:?}", e);
+                                }
+                            }
+                        }
+                    }
 
                     unsafe {
                         use windows::Win32::UI::WindowsAndMessaging::{
@@ -289,6 +349,7 @@ impl NotificationListener for WinNotificationListener {
                         }
                     }
                 }
+                done_tx.send(Ok(())).ok();
                 info!("[WinNotif] DB poll thread exiting");
                 return;
             }
@@ -300,7 +361,6 @@ impl NotificationListener for WinNotificationListener {
             // Seed with notifications already present so we don't replay old ones.
             if let Ok(op) = listener.GetNotificationsAsync(NotificationKinds::Toast) {
                 if let Ok(existing) = op.get() {
-                    let existing = existing;
                     let count = existing.Size().unwrap_or(0);
                     let mut ids = seen_ids.lock();
                     for i in 0..count {
@@ -314,11 +374,31 @@ impl NotificationListener for WinNotificationListener {
                 }
             }
 
-            // Try event-based detection first (requires package identity / MSIX install).
-            // Falls back gracefully to polling if unavailable.
+            // Processor thread: runs the autoswitch callback off the poll hot path so the poll
+            // loop is never blocked by focus logic or auto-accept delays.
+            // Receives pre-extracted Vec<String> segments — NO WinRT calls here.
+            // All GetNotification / text-extraction calls stay on the STA listener thread to
+            // avoid RPC_E_WRONG_THREAD (cross-apartment marshal without a message pump).
+            let (tx, rx) = mpsc::channel::<Vec<String>>();
+            let cb_p = Arc::clone(&callback);
+            std::thread::spawn(move || {
+                if let Err(e) =
+                    unsafe { SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL) }
+                {
+                    warn!("[WinNotif] Processor SetThreadPriority failed: {:?}", e);
+                }
+                while let Ok(segments) = rx.recv() {
+                    (cb_p.0)(segments);
+                }
+                info!("[WinNotif] Processor thread exiting");
+            });
+
+            // Try event-based detection first (requires MSIX package identity — falls back to
+            // polling if unavailable). The event handler only marks the ID as seen so the poll
+            // loop picks it up on the next cycle via GetNotificationsAsync (still on the STA
+            // thread). We do not call GetNotification from the MTA thread-pool callback to avoid
+            // the same RPC_E_WRONG_THREAD issue.
             let event_seen_ids = Arc::clone(&seen_ids);
-            let event_callback = Arc::clone(&callback);
-            let event_listener = listener.clone();
             let event_result = listener.NotificationChanged(&TypedEventHandler::<
                 UserNotificationListener,
                 UserNotificationChangedEventArgs,
@@ -326,27 +406,32 @@ impl NotificationListener for WinNotificationListener {
                 if let Some(args) = &*args {
                     if args.ChangeKind()? == UserNotificationChangedKind::Added {
                         let id = args.UserNotificationId()?;
-                        let is_new = event_seen_ids.lock().insert(id);
-                        if is_new {
-                            info!("[WinNotif] Event: new notification ID {}", id);
-                            process_notification(&event_listener, id, &event_callback);
-                        }
+                        // Insert but do NOT extract segments here — extraction happens on the
+                        // STA poll thread. Removing the ID from seen_ids is intentionally
+                        // skipped: the poll loop will call extract_segments for any ID not yet
+                        // seen, so we must not pre-insert it here.
+                        info!(
+                            "[WinNotif] Event: new notification ID {} (deferred to poll)",
+                            id
+                        );
+                        let _ = id; // future: wake poll early via a condvar when MSIX is enabled
                     }
                 }
                 Ok(())
             }));
 
-            let poll_interval = match event_result {
-                Ok(_token) => {
-                    info!("[WinNotif] Subscribed to NotificationChanged — poll is backup only (200ms)");
-                    on_mode("event".into());
-                    std::time::Duration::from_millis(200)
-                }
-                Err(_) => {
-                    info!("[WinNotif] NotificationChanged unavailable (unpackaged app), poll-only mode (100ms)");
-                    on_mode("poll".into());
-                    std::time::Duration::from_millis(100)
-                }
+            // Keep the token alive for the entire poll loop — dropping it would unregister the
+            // event handler before it ever fires. Using `ok()` instead of a match arm prevents
+            // the token from being scoped to the arm and dropped prematurely.
+            let _event_token = event_result.ok();
+            let poll_interval = if _event_token.is_some() {
+                info!("[WinNotif] Subscribed to NotificationChanged — poll is backup only (200ms)");
+                on_mode("event".into());
+                std::time::Duration::from_millis(200)
+            } else {
+                info!("[WinNotif] NotificationChanged unavailable (unpackaged app), poll-only mode (100ms)");
+                on_mode("poll".into());
+                std::time::Duration::from_millis(100)
             };
 
             loop {
@@ -359,11 +444,20 @@ impl NotificationListener for WinNotificationListener {
                     Ok(n) => n,
                     Err(e) => {
                         error!("[WinNotif] GetNotificationsAsync failed: {:?}", e);
-                        break;
+                        // Signal an error so the watchdog in autoswitch.rs retries.
+                        drop(tx);
+                        done_tx
+                            .send(Err(anyhow::anyhow!(
+                                "GetNotificationsAsync failed: {:?}",
+                                e
+                            )))
+                            .ok();
+                        return;
                     }
                 };
 
                 let count = notifications.Size().unwrap_or(0);
+                // Collect new IDs with the lock held (fast), then release before WinRT calls.
                 let mut new_notif_ids: Vec<u32> = Vec::new();
                 {
                     let mut ids = seen_ids.lock();
@@ -382,13 +476,19 @@ impl NotificationListener for WinNotificationListener {
                     }
                 }
 
-                if let Some(&id) = new_notif_ids.last() {
+                if !new_notif_ids.is_empty() {
                     info!(
-                        "[WinNotif] Poll: {} new notification(s), processing latest ID: {}",
-                        new_notif_ids.len(),
-                        id
+                        "[WinNotif] Poll: {} new notification(s)",
+                        new_notif_ids.len()
                     );
-                    process_notification(&listener, id, &callback);
+                    // Extract segments on this STA thread — GetNotification must not be called
+                    // from a different apartment. Send all new segments so a Dofus notification
+                    // is never dropped because another app posted in the same poll window.
+                    for id in new_notif_ids {
+                        if let Some(segments) = extract_segments(&listener, id) {
+                            tx.send(segments).ok();
+                        }
+                    }
                 }
 
                 unsafe {
@@ -400,10 +500,18 @@ impl NotificationListener for WinNotificationListener {
                 }
             }
 
+            // Dropping tx causes rx.recv() in the processor thread to return Err, triggering a clean exit.
+            drop(tx);
+            done_tx.send(Ok(())).ok();
             info!("[WinNotif] Notification listener thread exiting");
         });
 
-        Ok(())
+        // Block until the listener thread exits so the watchdog in autoswitch.rs can detect
+        // unexpected failures and restart. Ok(()) on WM_QUIT (watchdog breaks); Err on failure
+        // (watchdog sleeps 2s and retries). Treat a dropped sender (thread panic) as an error.
+        done_rx
+            .recv()
+            .unwrap_or_else(|_| Err(anyhow::anyhow!("listener thread exited unexpectedly")))
     }
 
     fn stop(&self) {
