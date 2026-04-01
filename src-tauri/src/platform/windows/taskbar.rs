@@ -22,8 +22,8 @@ use windows::{
         System::Com::{CoInitializeEx, CoUninitialize, COINIT_MULTITHREADED},
         UI::Shell::PropertiesSystem::{IPropertyStore, SHGetPropertyStoreForWindow},
         UI::WindowsAndMessaging::{
-            CreateIconIndirect, DestroyIcon, SendMessageW, HICON, ICONINFO, ICON_BIG, ICON_SMALL,
-            WM_SETICON,
+            CreateIconIndirect, DestroyIcon, IsWindow, SendMessageW, HICON, ICONINFO, ICON_BIG,
+            ICON_SMALL, WM_SETICON,
         },
     },
 };
@@ -141,6 +141,16 @@ pub fn set_window_icon(hwnd_isize: isize, rgba: &[u8], icon_handles: &mut HashMa
             return;
         }
     };
+    // Validate HWND before sending: if the window has closed and its handle has been
+    // reused by a different process, we must not apply the icon to the wrong window
+    // or cache a handle that will be destroyed on the next refresh.
+    if !unsafe { IsWindow(Some(hwnd)).as_bool() } {
+        unsafe {
+            let _ = DestroyIcon(new_hicon);
+        }
+        icon_handles.remove(&hwnd_isize);
+        return;
+    }
     unsafe {
         SendMessageW(
             hwnd,

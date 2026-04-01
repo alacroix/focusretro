@@ -218,9 +218,9 @@ impl WindowManager for WinWindowManager {
             cbSize: std::mem::size_of::<MONITORINFO>() as u32,
             ..Default::default()
         };
-        unsafe {
-            let _ = GetMonitorInfoA(monitor, &mut info);
-        };
+        if !unsafe { GetMonitorInfoA(monitor, &mut info).as_bool() } {
+            return Ok(());
+        }
 
         let l = info.rcWork.left;
         let t = info.rcWork.top;
@@ -285,6 +285,10 @@ impl WindowManager for WinWindowManager {
             unsafe {
                 if IsZoomed(hwnd).as_bool() || IsIconic(hwnd).as_bool() {
                     let _ = ShowWindow(hwnd, SW_RESTORE);
+                    // Skip positioning if the window is still in a non-resizable state.
+                    if IsZoomed(hwnd).as_bool() || IsIconic(hwnd).as_bool() {
+                        continue;
+                    }
                 }
                 let _ = SetWindowPos(hwnd, None, *x, *y, *cw, *ch, SWP_NOZORDER | SWP_NOACTIVATE);
             }
