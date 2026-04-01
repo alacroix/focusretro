@@ -2,48 +2,66 @@ import { useEffect, useState } from "react";
 
 import { listAccounts, AccountView } from "../lib/commands";
 
-const SIZE = 280;
-const CX = SIZE / 2;
-const CY = SIZE / 2;
-const OUTER_R = 120;
 const INNER_R = 32;
-const DISC_R = OUTER_R + 10;
 
-function wedgePath(i: number, n: number): string {
+function labelFontSize(name: string): number {
+  if (name.length > 14) return 7;
+  if (name.length > 10) return 8;
+  return 9;
+}
+
+function wedgePath(
+  i: number,
+  n: number,
+  cx: number,
+  cy: number,
+  outerR: number,
+  innerR: number,
+): string {
   const step = (2 * Math.PI) / n;
   const a1 = i * step - Math.PI / 2;
   const a2 = (i + 1) * step - Math.PI / 2;
   const large = step > Math.PI ? 1 : 0;
   return [
-    `M ${CX + OUTER_R * Math.cos(a1)} ${CY + OUTER_R * Math.sin(a1)}`,
-    `A ${OUTER_R} ${OUTER_R} 0 ${large} 1 ${CX + OUTER_R * Math.cos(a2)} ${CY + OUTER_R * Math.sin(a2)}`,
-    `L ${CX + INNER_R * Math.cos(a2)} ${CY + INNER_R * Math.sin(a2)}`,
-    `A ${INNER_R} ${INNER_R} 0 ${large} 0 ${CX + INNER_R * Math.cos(a1)} ${CY + INNER_R * Math.sin(a1)}`,
+    `M ${cx + outerR * Math.cos(a1)} ${cy + outerR * Math.sin(a1)}`,
+    `A ${outerR} ${outerR} 0 ${large} 1 ${cx + outerR * Math.cos(a2)} ${cy + outerR * Math.sin(a2)}`,
+    `L ${cx + innerR * Math.cos(a2)} ${cy + innerR * Math.sin(a2)}`,
+    `A ${innerR} ${innerR} 0 ${large} 0 ${cx + innerR * Math.cos(a1)} ${cy + innerR * Math.sin(a1)}`,
     "Z",
   ].join(" ");
 }
 
-function labelPos(i: number, n: number) {
+function labelPos(i: number, n: number, cx: number, cy: number, outerR: number, innerR: number) {
   const step = (2 * Math.PI) / n;
   const mid = (i + 0.5) * step - Math.PI / 2;
-  const r = (OUTER_R + INNER_R) / 2;
-  return { x: CX + r * Math.cos(mid), y: CY + r * Math.sin(mid) };
+  const r = (outerR + innerR) / 2;
+  return { x: cx + r * Math.cos(mid), y: cy + r * Math.sin(mid) };
 }
 
 interface Props {
   pos: { x: number; y: number } | null;
   hovered: number;
+  accounts?: AccountView[];
 }
 
-export default function RadialSelector({ pos, hovered }: Props) {
-  const [accounts, setAccounts] = useState<AccountView[]>([]);
+export default function RadialSelector({ pos, hovered, accounts: accountsProp }: Props) {
+  const [accounts, setAccounts] = useState<AccountView[]>(accountsProp ?? []);
 
   useEffect(() => {
+    if (accountsProp) return;
     if (pos) listAccounts().then(setAccounts);
-  }, [pos]);
+  }, [pos, accountsProp]);
 
   const n = accounts.length;
   if (!pos || n < 2) return null;
+
+  const isLarge = n >= 5;
+  const SIZE = isLarge ? 350 : 280;
+  const OUTER_R = isLarge ? 150 : 120;
+  const DISC_R = OUTER_R + 10;
+  const CX = SIZE / 2;
+  const CY = SIZE / 2;
+  const MASK_OFFSET = isLarge ? 75 : 60;
 
   const accent = "#d4721a";
   const discGrad1 = "rgba(68,56,38,0.80)";
@@ -70,10 +88,13 @@ export default function RadialSelector({ pos, hovered }: Props) {
     return "none";
   };
 
+  const positioning = accountsProp ? "absolute" : "fixed";
+
   return (
     <div
-      className="fixed select-none"
+      className="select-none"
       style={{
+        position: positioning,
         left: pos.x,
         top: pos.y,
         transform: "translate(-50%,-50%)",
@@ -91,7 +112,13 @@ export default function RadialSelector({ pos, hovered }: Props) {
             <feDropShadow dx="0" dy="4" stdDeviation="12" floodColor={shadow} floodOpacity="1" />
           </filter>
           <mask id="disc-mask">
-            <rect x={-60} y={-60} width={SIZE + 120} height={SIZE + 120} fill="white" />
+            <rect
+              x={-MASK_OFFSET}
+              y={-MASK_OFFSET}
+              width={SIZE + MASK_OFFSET * 2}
+              height={SIZE + MASK_OFFSET * 2}
+              fill="white"
+            />
             <circle cx={CX} cy={CY} r={INNER_R} fill="black" />
           </mask>
         </defs>
@@ -119,7 +146,7 @@ export default function RadialSelector({ pos, hovered }: Props) {
           accounts.map((_, i) => (
             <path
               key={i}
-              d={wedgePath(i, n)}
+              d={wedgePath(i, n, CX, CY, OUTER_R, INNER_R)}
               fill={sliceFill(i)}
               style={{ transition: "fill 0.10s" }}
             />
@@ -186,14 +213,21 @@ export default function RadialSelector({ pos, hovered }: Props) {
 
       {/* Labels */}
       {accounts.map((acc, i) => {
-        const { x, y } = labelPos(i, n);
+        const { x, y } = labelPos(i, n, CX, CY, OUTER_R, INNER_R);
         const isHov = i === hovered;
         const isCur = acc.is_current;
+        const isUpper = y < CY - 40;
+        const isMiddle = Math.abs(y - CY) < 40;
+        const xShift = n >= 7 ? (x < CX - 5 ? -15 : x > CX + 5 ? 15 : 0) : 0;
         return (
           <div
             key={i}
-            className="pointer-events-none absolute flex flex-col items-center gap-1"
-            style={{ left: x, top: y, transform: "translate(-50%,-50%)" }}
+            className={`pointer-events-none absolute flex items-center gap-2 ${isUpper ? "flex-col-reverse" : "flex-col"}`}
+            style={{
+              left: x,
+              top: y,
+              transform: `translate(calc(-50% + ${isMiddle ? xShift : 0}px),-50%)`,
+            }}
           >
             <div
               className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border text-xs font-bold"
@@ -225,7 +259,7 @@ export default function RadialSelector({ pos, hovered }: Props) {
             <span
               style={{
                 display: "block",
-                fontSize: 9,
+                fontSize: labelFontSize(acc.character_name),
                 fontWeight: isHov || isCur ? 700 : 500,
                 letterSpacing: "0.05em",
                 textTransform: "uppercase" as const,
@@ -235,7 +269,11 @@ export default function RadialSelector({ pos, hovered }: Props) {
                 textOverflow: "ellipsis",
                 color: isHov ? textHover : isCur ? textActive : textNorm,
                 textShadow,
-                transform: isHov ? "translateY(2px)" : "none",
+                transform: isHov
+                  ? `translateX(${isMiddle ? 0 : xShift}px) translateY(2px)`
+                  : !isMiddle && xShift
+                    ? `translateX(${xShift}px)`
+                    : "none",
                 transition: "color 0.10s, transform 0.15s cubic-bezier(0.34,1.56,0.64,1)",
               }}
             >

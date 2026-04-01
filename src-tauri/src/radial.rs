@@ -4,10 +4,23 @@ use std::sync::Arc;
 use tauri::{AppHandle, Emitter};
 
 // Radial geometry — must match RadialSelector.tsx constants
-pub const OUTER_R: f64 = 124.0;
-pub const INNER_R: f64 = 34.0;
-pub const RADIAL_WIN_SIZE: f64 = 420.0;
-pub const RADIAL_WIN_CX: f64 = RADIAL_WIN_SIZE / 2.0;
+pub const INNER_R: f64 = 32.0;
+
+pub fn radial_win_size(n: usize) -> f64 {
+    if n >= 5 {
+        525.0
+    } else {
+        420.0
+    }
+}
+
+pub fn radial_outer_r(n: usize) -> f64 {
+    if n >= 5 {
+        150.0
+    } else {
+        120.0
+    }
+}
 
 /// Compute the account segment index under the cursor, or None if outside the wheel.
 pub fn radial_segment_at(
@@ -16,6 +29,8 @@ pub fn radial_segment_at(
     center_x: f64,
     center_y: f64,
     n: usize,
+    outer_r: f64,
+    inner_r: f64,
 ) -> Option<usize> {
     if n == 0 {
         return None;
@@ -23,7 +38,7 @@ pub fn radial_segment_at(
     let dx = cursor_x - center_x;
     let dy = cursor_y - center_y;
     let dist = (dx * dx + dy * dy).sqrt();
-    if !(INNER_R..=OUTER_R).contains(&dist) {
+    if !(inner_r..=outer_r).contains(&dist) {
         return None;
     }
     let mut angle = dy.atan2(dx) + std::f64::consts::PI / 2.0;
@@ -45,9 +60,11 @@ pub fn resolve_selection(state: &AppState, logical_x: f64, logical_y: f64) -> Op
     if n == 0 {
         return None;
     }
-    let rel_x = RADIAL_WIN_CX + (logical_x - keydown.0);
-    let rel_y = RADIAL_WIN_CX + (logical_y - keydown.1);
-    let seg = radial_segment_at(rel_x, rel_y, RADIAL_WIN_CX, RADIAL_WIN_CX, n)?;
+    let win_cx = radial_win_size(n) / 2.0;
+    let outer_r = radial_outer_r(n);
+    let rel_x = win_cx + (logical_x - keydown.0);
+    let rel_y = win_cx + (logical_y - keydown.1);
+    let seg = radial_segment_at(rel_x, rel_y, win_cx, win_cx, n, outer_r, INNER_R)?;
     Some(accounts[seg].character_name.clone())
 }
 
@@ -78,43 +95,78 @@ pub fn focus_selected_or_current(
 mod tests {
     use super::*;
 
-    const CX: f64 = RADIAL_WIN_CX;
-    const CY: f64 = RADIAL_WIN_SIZE / 2.0;
+    // Large geometry (n >= 5): win_size=525, outer_r=150 — must match RadialSelector.tsx
+    const CX: f64 = 262.5;
+    const CY: f64 = 262.5;
+    const OUTER_R: f64 = 150.0;
     // A radius comfortably inside the valid ring
     const R: f64 = (INNER_R + OUTER_R) / 2.0;
 
     #[test]
     fn n_zero_returns_none() {
-        assert_eq!(radial_segment_at(CX, CY - R, CX, CY, 0), None);
+        assert_eq!(
+            radial_segment_at(CX, CY - R, CX, CY, 0, OUTER_R, INNER_R),
+            None
+        );
     }
 
     #[test]
     fn inside_inner_ring_returns_none() {
         // dist = INNER_R - 1, just inside the dead zone
-        assert_eq!(radial_segment_at(CX, CY - (INNER_R - 1.0), CX, CY, 4), None);
+        assert_eq!(
+            radial_segment_at(CX, CY - (INNER_R - 1.0), CX, CY, 4, OUTER_R, INNER_R),
+            None
+        );
     }
 
     #[test]
     fn outside_outer_ring_returns_none() {
-        assert_eq!(radial_segment_at(CX, CY - (OUTER_R + 1.0), CX, CY, 4), None);
+        assert_eq!(
+            radial_segment_at(CX, CY - (OUTER_R + 1.0), CX, CY, 4, OUTER_R, INNER_R),
+            None
+        );
     }
 
     #[test]
     fn n_one_always_returns_segment_zero() {
         // Any point in the valid ring maps to segment 0
-        assert_eq!(radial_segment_at(CX, CY - R, CX, CY, 1), Some(0)); // top
-        assert_eq!(radial_segment_at(CX + R, CY, CX, CY, 1), Some(0)); // right
-        assert_eq!(radial_segment_at(CX, CY + R, CX, CY, 1), Some(0)); // bottom
-        assert_eq!(radial_segment_at(CX - R, CY, CX, CY, 1), Some(0)); // left
+        assert_eq!(
+            radial_segment_at(CX, CY - R, CX, CY, 1, OUTER_R, INNER_R),
+            Some(0)
+        ); // top
+        assert_eq!(
+            radial_segment_at(CX + R, CY, CX, CY, 1, OUTER_R, INNER_R),
+            Some(0)
+        ); // right
+        assert_eq!(
+            radial_segment_at(CX, CY + R, CX, CY, 1, OUTER_R, INNER_R),
+            Some(0)
+        ); // bottom
+        assert_eq!(
+            radial_segment_at(CX - R, CY, CX, CY, 1, OUTER_R, INNER_R),
+            Some(0)
+        ); // left
     }
 
     #[test]
     fn n4_clockwise_segments() {
         // Segment 0 = top, 1 = right, 2 = bottom, 3 = left
-        assert_eq!(radial_segment_at(CX, CY - R, CX, CY, 4), Some(0));
-        assert_eq!(radial_segment_at(CX + R, CY, CX, CY, 4), Some(1));
-        assert_eq!(radial_segment_at(CX, CY + R, CX, CY, 4), Some(2));
-        assert_eq!(radial_segment_at(CX - R, CY, CX, CY, 4), Some(3));
+        assert_eq!(
+            radial_segment_at(CX, CY - R, CX, CY, 4, OUTER_R, INNER_R),
+            Some(0)
+        );
+        assert_eq!(
+            radial_segment_at(CX + R, CY, CX, CY, 4, OUTER_R, INNER_R),
+            Some(1)
+        );
+        assert_eq!(
+            radial_segment_at(CX, CY + R, CX, CY, 4, OUTER_R, INNER_R),
+            Some(2)
+        );
+        assert_eq!(
+            radial_segment_at(CX - R, CY, CX, CY, 4, OUTER_R, INNER_R),
+            Some(3)
+        );
     }
 
     #[test]
@@ -122,12 +174,12 @@ mod tests {
         use std::f64::consts::PI;
         let mut seen = std::collections::HashSet::new();
         for i in 0..8usize {
-            // Place cursor at centre of each 45-degree slice
-            let angle = (i as f64) * (2.0 * PI / 8.0);
+            // Place cursor at centre of each 45-degree slice (offset by half a segment)
+            let angle = (i as f64 + 0.5) * (2.0 * PI / 8.0);
             // Rotate so segment 0 is at the top: angle 0 → dy = -R (up)
             let cursor_x = CX + R * angle.sin();
             let cursor_y = CY - R * angle.cos();
-            let seg = radial_segment_at(cursor_x, cursor_y, CX, CY, 8).unwrap();
+            let seg = radial_segment_at(cursor_x, cursor_y, CX, CY, 8, OUTER_R, INNER_R).unwrap();
             seen.insert(seg);
         }
         assert_eq!(seen.len(), 8, "all 8 segments must be reachable");
@@ -138,13 +190,15 @@ mod tests {
         // Shifting both cursor and center by the same amount must yield the same segment
         let offset_x = 50.0;
         let offset_y = 30.0;
-        let seg_origin = radial_segment_at(CX, CY - R, CX, CY, 4);
+        let seg_origin = radial_segment_at(CX, CY - R, CX, CY, 4, OUTER_R, INNER_R);
         let seg_offset = radial_segment_at(
             CX + offset_x,
             CY - R + offset_y,
             CX + offset_x,
             CY + offset_y,
             4,
+            OUTER_R,
+            INNER_R,
         );
         assert_eq!(seg_origin, seg_offset);
     }

@@ -1,6 +1,7 @@
 use crate::platform;
 use crate::radial::{
-    focus_selected_or_current, radial_segment_at, resolve_selection, RADIAL_WIN_CX,
+    focus_selected_or_current, radial_outer_r, radial_segment_at, radial_win_size,
+    resolve_selection, INNER_R,
 };
 use crate::state::{AppState, HotkeyBinding};
 use log::{error, info};
@@ -121,6 +122,9 @@ fn fire_action(action: &str, c: &HotkeyContext) {
         }
         let phys_x = pt.x as f64;
         let phys_y = pt.y as f64;
+        let n_accounts = c.state.get_account_views().len();
+        let win_size = radial_win_size(n_accounts);
+        let win_cx = win_size / 2.0;
 
         let h = c.handle.clone();
         let state_ref = c.state.clone();
@@ -136,8 +140,9 @@ fn fire_action(action: &str, c: &HotkeyContext) {
                 state_ref.set_radial_center(phys_x / scale, phys_y / scale);
 
                 // Position window centered on cursor (physical pixel coords)
-                let win_x = (phys_x - RADIAL_WIN_CX * scale) as i32;
-                let win_y = (phys_y - RADIAL_WIN_CX * scale) as i32;
+                let _ = w.set_size(tauri::LogicalSize::new(win_size, win_size));
+                let win_x = (phys_x - win_cx * scale) as i32;
+                let win_y = (phys_y - win_cx * scale) as i32;
                 let _ = w.set_position(tauri::Position::Physical(tauri::PhysicalPosition {
                     x: win_x,
                     y: win_y,
@@ -149,7 +154,7 @@ fn fire_action(action: &str, c: &HotkeyContext) {
                 let theme = state_ref.get_theme();
                 let _ = w.eval(format!(
                     "window.__radialShow&&window.__radialShow({:.2},{:.2},'{}')",
-                    RADIAL_WIN_CX, RADIAL_WIN_CX, theme
+                    win_cx, win_cx, theme
                 ));
             }
         });
@@ -321,11 +326,20 @@ unsafe extern "system" fn mouse_callback(ncode: i32, wparam: WPARAM, lparam: LPA
                         let ly = ms.pt.y as f64 / scale;
                         let accounts = c.state.get_account_views();
                         let n = accounts.len();
-                        let rel_x = RADIAL_WIN_CX + (lx - keydown.0);
-                        let rel_y = RADIAL_WIN_CX + (ly - keydown.1);
-                        let seg = radial_segment_at(rel_x, rel_y, RADIAL_WIN_CX, RADIAL_WIN_CX, n)
-                            .map(|s| s as i32)
-                            .unwrap_or(-1);
+                        let win_cx = radial_win_size(n) / 2.0;
+                        let rel_x = win_cx + (lx - keydown.0);
+                        let rel_y = win_cx + (ly - keydown.1);
+                        let seg = radial_segment_at(
+                            rel_x,
+                            rel_y,
+                            win_cx,
+                            win_cx,
+                            n,
+                            radial_outer_r(n),
+                            INNER_R,
+                        )
+                        .map(|s| s as i32)
+                        .unwrap_or(-1);
                         let prev = c.last_hover_seg.swap(seg, Ordering::Relaxed);
                         if seg != prev {
                             let h = c.handle.clone();

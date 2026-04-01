@@ -24,7 +24,8 @@ const FLAG_SHIFT: u64 = 0x00020000;
 const FLAG_CTRL: u64 = 0x00040000;
 
 use crate::radial::{
-    focus_selected_or_current, radial_segment_at, resolve_selection, RADIAL_WIN_CX, RADIAL_WIN_SIZE,
+    focus_selected_or_current, radial_outer_r, radial_segment_at, radial_win_size,
+    resolve_selection, INNER_R,
 };
 
 #[repr(C)]
@@ -171,11 +172,13 @@ extern "C" fn hotkey_callback(
                 let cursor = unsafe { CGEventGetLocation(event) };
                 let accounts = ctx.state.get_account_views();
                 let n = accounts.len();
-                let rel_x = RADIAL_WIN_CX + (cursor.x - keydown.0);
-                let rel_y = RADIAL_WIN_CX + (cursor.y - keydown.1);
-                let seg = radial_segment_at(rel_x, rel_y, RADIAL_WIN_CX, RADIAL_WIN_CX, n)
-                    .map(|s| s as i32)
-                    .unwrap_or(-1);
+                let win_cx = radial_win_size(n) / 2.0;
+                let rel_x = win_cx + (cursor.x - keydown.0);
+                let rel_y = win_cx + (cursor.y - keydown.1);
+                let seg =
+                    radial_segment_at(rel_x, rel_y, win_cx, win_cx, n, radial_outer_r(n), INNER_R)
+                        .map(|s| s as i32)
+                        .unwrap_or(-1);
                 let prev = ctx.last_hover_seg.swap(seg, Ordering::Relaxed);
                 if seg != prev {
                     let h = ctx.handle.clone();
@@ -254,16 +257,18 @@ extern "C" fn hotkey_callback(
                 ctx.last_hover_seg.store(-1, Ordering::Relaxed);
                 // CGEventGetLocation returns screen logical coordinates (points) — works on all monitors
                 let cursor = unsafe { CGEventGetLocation(event) };
+                let n_accounts = ctx.state.get_account_views().len();
+                let win_size = radial_win_size(n_accounts);
+                let win_cx = win_size / 2.0;
                 let h = ctx.handle.clone();
                 let state_ref = ctx.state.clone();
                 let _ = h.clone().run_on_main_thread(move || {
                     use tauri_nspanel::ManagerExt as NSPanelManagerExt;
                     if let Some(w) = h.get_webview_window("radial-overlay") {
                         // Position small window centered on cursor, then show — no cross-display spanning
-                        let win_x = cursor.x - RADIAL_WIN_CX;
-                        let win_y = cursor.y - RADIAL_WIN_CX;
-                        let _ =
-                            w.set_size(tauri::LogicalSize::new(RADIAL_WIN_SIZE, RADIAL_WIN_SIZE));
+                        let win_x = cursor.x - win_cx;
+                        let win_y = cursor.y - win_cx;
+                        let _ = w.set_size(tauri::LogicalSize::new(win_size, win_size));
                         let _ = w.set_position(tauri::LogicalPosition::new(win_x, win_y));
                         if let Ok(panel) = h.get_webview_panel("radial-overlay") {
                             panel.order_front_regardless();
@@ -275,7 +280,7 @@ extern "C" fn hotkey_callback(
                         let theme = state_ref.get_theme();
                         let _ = w.eval(format!(
                             "window.__radialShow({:.2},{:.2},'{}')",
-                            RADIAL_WIN_CX, RADIAL_WIN_CX, theme
+                            win_cx, win_cx, theme
                         ));
                     }
                 });
