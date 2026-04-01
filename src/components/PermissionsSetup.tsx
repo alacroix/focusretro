@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { openSettings, requestScreenRecording, requestInputMonitoring } from "../lib/commands";
@@ -77,7 +78,13 @@ function PermissionCard({
 
 function PermissionsSetup({ accessibility, screenRecording, inputMonitoring, onRecheck }: Props) {
   const { t } = useTranslation();
+  const [error, setError] = useState<string | null>(null);
   const allGranted = accessibility && screenRecording && inputMonitoring;
+
+  const handleRecheck = () => {
+    setError(null);
+    onRecheck();
+  };
 
   return (
     <div className="flex min-h-screen flex-col bg-white text-gray-900 dark:bg-gray-950 dark:text-gray-100">
@@ -111,7 +118,9 @@ function PermissionsSetup({ accessibility, screenRecording, inputMonitoring, onR
         actions={
           <button
             type="button"
-            onClick={() => openSettings("accessibility")}
+            onClick={() =>
+              openSettings("accessibility").catch(() => setError(t("setup.request_failed")))
+            }
             className="cursor-pointer rounded-md bg-amber-100 px-3 py-1.5 text-xs text-amber-800 transition-colors hover:bg-amber-200 dark:bg-amber-800/40 dark:text-amber-200 dark:hover:bg-amber-700/50"
           >
             {t("setup.open_settings")}
@@ -142,14 +151,18 @@ function PermissionsSetup({ accessibility, screenRecording, inputMonitoring, onR
           <>
             <button
               type="button"
-              onClick={() => requestScreenRecording()}
+              onClick={() =>
+                requestScreenRecording().catch(() => setError(t("setup.request_failed")))
+              }
               className="cursor-pointer rounded-md bg-brand-100 px-3 py-1.5 text-xs text-brand-800 transition-colors hover:bg-brand-200 dark:bg-brand-700/50 dark:text-brand-200 dark:hover:bg-brand-600/60"
             >
               {t("setup.request_permission")}
             </button>
             <button
               type="button"
-              onClick={() => openSettings("screen_recording")}
+              onClick={() =>
+                openSettings("screen_recording").catch(() => setError(t("setup.request_failed")))
+              }
               className="cursor-pointer rounded-md bg-amber-100 px-3 py-1.5 text-xs text-amber-800 transition-colors hover:bg-amber-200 dark:bg-amber-800/40 dark:text-amber-200 dark:hover:bg-amber-700/50"
             >
               {t("setup.open_settings")}
@@ -181,14 +194,18 @@ function PermissionsSetup({ accessibility, screenRecording, inputMonitoring, onR
           <>
             <button
               type="button"
-              onClick={() => requestInputMonitoring()}
+              onClick={() =>
+                requestInputMonitoring().catch(() => setError(t("setup.request_failed")))
+              }
               className="cursor-pointer rounded-md bg-brand-100 px-3 py-1.5 text-xs text-brand-800 transition-colors hover:bg-brand-200 dark:bg-brand-700/50 dark:text-brand-200 dark:hover:bg-brand-600/60"
             >
               {t("setup.request_permission")}
             </button>
             <button
               type="button"
-              onClick={() => openSettings("input_monitoring")}
+              onClick={() =>
+                openSettings("input_monitoring").catch(() => setError(t("setup.request_failed")))
+              }
               className="cursor-pointer rounded-md bg-amber-100 px-3 py-1.5 text-xs text-amber-800 transition-colors hover:bg-amber-200 dark:bg-amber-800/40 dark:text-amber-200 dark:hover:bg-amber-700/50"
             >
               {t("setup.open_settings")}
@@ -197,17 +214,19 @@ function PermissionsSetup({ accessibility, screenRecording, inputMonitoring, onR
         }
       />
 
+      {error && <p className="mx-4 mt-2 text-xs text-red-600 dark:text-red-400">{error}</p>}
+
       <div className="mx-4 mt-6 flex items-center justify-between border-t border-gray-200 pt-4 dark:border-gray-800">
         <button
           type="button"
-          onClick={onRecheck}
+          onClick={handleRecheck}
           className="cursor-pointer rounded-md bg-gray-100 px-3 py-1.5 text-xs text-gray-700 transition-colors hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
         >
           {t("setup.check_again")}
         </button>
         <button
           type="button"
-          onClick={onRecheck}
+          onClick={handleRecheck}
           disabled={!allGranted}
           className={`rounded-md px-4 py-1.5 text-xs font-medium transition-colors ${
             allGranted

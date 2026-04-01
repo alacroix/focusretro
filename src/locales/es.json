@@ -118,5 +118,9 @@
   "close.hide_tray": "Minimizar a la bandeja del sistema",
   "close.hide_menubar": "Minimizar a la barra de menús",
   "close.quit": "Cerrar la aplicación",
-  "close.note": "Puedes cambiar esto más tarde en Ajustes"
+  "close.note": "Puedes cambiar esto más tarde en Ajustes",
+
+  "error.init_failed": "FocusRetro no pudo iniciarse. Por favor, reinicia la aplicación.",
+  "error.relaunch": "Reiniciar",
+  "setup.request_failed": "No se pudo solicitar el permiso. Intenta abrir los Ajustes manualmente."
 }

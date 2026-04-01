@@ -60,6 +60,7 @@ function App() {
   const [updateConsent, setUpdateConsentState] = useState<boolean | null | undefined>(undefined);
   const [showConsentModal, setShowConsentModal] = useState(false);
   const [languageReady, setLanguageReady] = useState(false);
+  const [initError, setInitError] = useState(false);
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [closeOs, setCloseOs] = useState<string>("windows");
   const [taskbarUngroup, setTaskbarUngroup] = useState(true);
@@ -123,7 +124,10 @@ function App() {
           }
         }
       })
-      .catch((e) => console.error("[get_initial_state] failed:", e));
+      .catch((e) => {
+        console.error("[get_initial_state] failed:", e);
+        setInitError(true);
+      });
 
     return () => {
       cancelledAccounts = true;
@@ -324,6 +328,22 @@ function App() {
       setHasInputMonitoring(p.input_monitoring);
     });
   };
+
+  if (initError) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-white p-6 dark:bg-gray-950">
+        <div className="text-center">
+          <p className="text-sm text-gray-700 dark:text-gray-300">{t("error.init_failed")}</p>
+          <button
+            onClick={relaunch}
+            className="mt-3 cursor-pointer rounded-lg bg-brand-600 px-4 py-1.5 text-xs font-medium text-white hover:bg-brand-500"
+          >
+            {t("error.relaunch")}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (!languageReady || !permissionsChecked) {
     return <div className="min-h-screen bg-white dark:bg-gray-950" />;

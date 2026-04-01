@@ -29,14 +29,20 @@ function MessageList() {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    getMessages().then(setMessages);
+    getMessages()
+      .then(setMessages)
+      .catch((e) => console.error("[getMessages] failed:", e));
 
     const unlisten = listen<StoredMessage>("new-pm", (e) => {
       setMessages((prev) => [...prev, e.payload]);
+    }).catch((e) => {
+      console.error("[new-pm listen] failed:", e);
     });
 
     return () => {
-      unlisten.then((f) => f());
+      unlisten.then((f) => {
+        if (typeof f === "function") f();
+      });
     };
   }, []);
 

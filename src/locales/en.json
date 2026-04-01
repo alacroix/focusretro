@@ -118,5 +118,9 @@
   "close.hide_tray": "Hide to system tray",
   "close.hide_menubar": "Hide to menu bar",
   "close.quit": "Quit app",
-  "close.note": "You can change this later in Settings"
+  "close.note": "You can change this later in Settings",
+
+  "error.init_failed": "FocusRetro failed to start. Please relaunch the app.",
+  "error.relaunch": "Relaunch",
+  "setup.request_failed": "Failed to request permission. Try opening Settings manually."
 }

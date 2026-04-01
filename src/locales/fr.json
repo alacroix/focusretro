@@ -118,5 +118,9 @@
   "close.hide_tray": "Réduire dans la barre des tâches",
   "close.hide_menubar": "Réduire dans la barre des menus",
   "close.quit": "Quitter l'application",
-  "close.note": "Vous pouvez modifier ce comportement dans les Paramètres"
+  "close.note": "Vous pouvez modifier ce comportement dans les Paramètres",
+
+  "error.init_failed": "FocusRetro n'a pas pu démarrer. Veuillez relancer l'application.",
+  "error.relaunch": "Relancer",
+  "setup.request_failed": "Impossible de demander la permission. Essayez d'ouvrir les Paramètres manuellement."
 }
