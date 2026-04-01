@@ -167,7 +167,7 @@ extern "C" fn hotkey_callback(
     // Mouse moved: update hover segment while radial is open
     if event_type == K_CG_EVENT_MOUSE_MOVED as u32 {
         use std::sync::atomic::Ordering;
-        if ctx.state.radial_open.load(Ordering::Relaxed) {
+        if ctx.state.radial_open.load(Ordering::Acquire) {
             if let Some(keydown) = ctx.state.get_radial_center() {
                 let cursor = unsafe { CGEventGetLocation(event) };
                 let accounts = ctx.state.get_account_views();
@@ -199,7 +199,7 @@ extern "C" fn hotkey_callback(
     // Keyup: if radial is open and key matches, compute selection and hide
     if event_type == K_CG_EVENT_KEY_UP as u32 {
         use std::sync::atomic::Ordering;
-        if ctx.state.radial_open.load(Ordering::Relaxed) {
+        if ctx.state.radial_open.load(Ordering::Acquire) {
             let keycode =
                 unsafe { CGEventGetIntegerValueField(event, K_CG_KEYBOARD_EVENT_KEYCODE) } as u16;
             let hotkeys = ctx.state.get_hotkeys();
@@ -207,7 +207,7 @@ extern "C" fn hotkey_callback(
                 if binding.action == "radial" && !binding.key.is_empty() {
                     if let Some(expected) = js_code_to_mac_keycode(&binding.key) {
                         if keycode == expected {
-                            ctx.state.radial_open.store(false, Ordering::Relaxed);
+                            ctx.state.radial_open.store(false, Ordering::Release);
                             // Get cursor position before entering main thread (event may be freed after)
                             let cursor_now = unsafe { CGEventGetLocation(event) };
                             let h = ctx.handle.clone();
@@ -250,10 +250,10 @@ extern "C" fn hotkey_callback(
             // Radial: check guard first (no expensive calls before this)
             if binding.action == "radial" {
                 use std::sync::atomic::Ordering;
-                if ctx.state.radial_open.load(Ordering::Relaxed) {
+                if ctx.state.radial_open.load(Ordering::Acquire) {
                     break; // key-repeat guard
                 }
-                ctx.state.radial_open.store(true, Ordering::Relaxed);
+                ctx.state.radial_open.store(true, Ordering::Release);
                 ctx.last_hover_seg.store(-1, Ordering::Relaxed);
                 // CGEventGetLocation returns screen logical coordinates (points) — works on all monitors
                 let cursor = unsafe { CGEventGetLocation(event) };

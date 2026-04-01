@@ -60,7 +60,7 @@ fn refresh_accounts(handle: &AppHandle, state: &Arc<AppState>) {
 /// Skips the update while the radial overlay is open, and caches the last known foreground ID
 /// to avoid redundant lock acquisitions when the foreground hasn't changed.
 fn sync_focus_from_foreground(handle: &AppHandle, state: &Arc<AppState>) {
-    if state.radial_open.load(std::sync::atomic::Ordering::Relaxed) {
+    if state.radial_open.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
     let fg_id = crate::platform::get_foreground_window_id();

@@ -468,7 +468,7 @@ pub fn set_theme(theme: String, state: tauri::State<'_, Arc<AppState>>) {
 #[tauri::command]
 pub fn show_radial(app: tauri::AppHandle, state: tauri::State<'_, Arc<AppState>>) {
     use std::sync::atomic::Ordering;
-    state.radial_open.store(true, Ordering::Relaxed);
+    state.radial_open.store(true, Ordering::Release);
     let h = app.clone();
     std::thread::spawn(move || {
         if let Some(w) = h.get_webview_window("radial-overlay") {
@@ -483,7 +483,7 @@ pub fn show_radial(app: tauri::AppHandle, state: tauri::State<'_, Arc<AppState>>
 #[tauri::command]
 pub fn hide_radial(app: tauri::AppHandle, state: tauri::State<'_, Arc<AppState>>) {
     use std::sync::atomic::Ordering;
-    state.radial_open.store(false, Ordering::Relaxed);
+    state.radial_open.store(false, Ordering::Release);
     if let Some(w) = app.get_webview_window("radial-overlay") {
         let _ = w.hide();
     }

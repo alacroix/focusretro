@@ -108,10 +108,10 @@ fn read_modifiers() -> (bool, bool, bool, bool) {
 fn fire_action(action: &str, c: &HotkeyContext) {
     if action == "radial" {
         use std::sync::atomic::Ordering;
-        if c.state.radial_open.load(Ordering::Relaxed) {
+        if c.state.radial_open.load(Ordering::Acquire) {
             return; // guard against key-repeat
         }
-        c.state.radial_open.store(true, Ordering::Relaxed);
+        c.state.radial_open.store(true, Ordering::Release);
         c.last_hover_seg.store(-1, Ordering::Relaxed);
 
         // Capture physical cursor position NOW on the hook thread, before
@@ -252,13 +252,13 @@ unsafe extern "system" fn hotkey_callback(ncode: i32, wparam: WPARAM, lparam: LP
         HOTKEY_CTX.with(|ctx| {
             if let Some(ref c) = *ctx.borrow() {
                 use std::sync::atomic::Ordering;
-                if c.state.radial_open.load(Ordering::Relaxed) {
+                if c.state.radial_open.load(Ordering::Acquire) {
                     let hotkeys = c.state.get_hotkeys();
                     for binding in &hotkeys {
                         if binding.action == "radial" && !binding.key.is_empty() {
                             if let Some(expected) = js_code_to_vk(&binding.key) {
                                 if vk == expected {
-                                    c.state.radial_open.store(false, Ordering::Relaxed);
+                                    c.state.radial_open.store(false, Ordering::Release);
 
                                     // Capture physical cursor at key-release moment
                                     let mut pt = POINT { x: 0, y: 0 };
@@ -318,7 +318,7 @@ unsafe extern "system" fn mouse_callback(ncode: i32, wparam: WPARAM, lparam: LPA
         HOTKEY_CTX.with(|ctx| {
             if let Some(ref c) = *ctx.borrow() {
                 use std::sync::atomic::Ordering;
-                if c.state.radial_open.load(Ordering::Relaxed) {
+                if c.state.radial_open.load(Ordering::Acquire) {
                     if let Some(keydown) = c.state.get_radial_center() {
                         let ms = &*(lparam.0 as *const MSLLHOOKSTRUCT);
                         let scale = *c.scale.lock();
@@ -371,11 +371,11 @@ unsafe extern "system" fn mouse_callback(ncode: i32, wparam: WPARAM, lparam: LPA
         HOTKEY_CTX.with(|ctx| {
             if let Some(ref c) = *ctx.borrow() {
                 use std::sync::atomic::Ordering;
-                if c.state.radial_open.load(Ordering::Relaxed) {
+                if c.state.radial_open.load(Ordering::Acquire) {
                     let hotkeys = c.state.get_hotkeys();
                     for binding in &hotkeys {
                         if binding.action == "radial" && binding.key == button {
-                            c.state.radial_open.store(false, Ordering::Relaxed);
+                            c.state.radial_open.store(false, Ordering::Release);
                             let mut pt = POINT { x: 0, y: 0 };
                             let _ = GetCursorPos(&mut pt);
                             let phys_x = pt.x as f64;
