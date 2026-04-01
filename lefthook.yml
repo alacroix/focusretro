@@ -1,7 +1,7 @@
 pre-commit:
   commands:
     oxfmt:
-      glob: "*.{ts,tsx,js,jsx,json,css,md}"
+      glob: "**/*.{ts,tsx,js,jsx,json,html,css,md}"
       run: npx oxfmt {staged_files} && git add {staged_files}
     oxlint:
       glob: "*.{ts,tsx}"
