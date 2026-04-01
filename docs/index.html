@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Focus Retro - Le multicompte, sans la prise de tête</title>
+    <title>Focus Retro - Auto-focus gratuit pour Dofus Retro</title>
     <meta
       name="description"
       content="Focus Retro est un outil d'auto-focus pour Dofus Retro : il bascule automatiquement sur la bonne fenêtre à votre tour, sur invitation de groupe ou demande d'échange. Alternative à Organizer, Dosoft/Doframe, Dracoon et Xixou Switcher. Fonctionne sur macOS et Windows."
@@ -893,19 +893,6 @@
               </p>
             </div>
           </div>
-          <!-- Right: screenshot (hidden until after next release) -->
-          <!-- <div class="md:w-1/2 w-full">
-      <figure class="rounded-xl overflow-hidden border border-orange-200 dark:border-orange-700/60 shadow-md bg-white dark:bg-gray-900">
-        <img src="screenshots/github-verified.webp"
-             alt="Badge Verified sur la page GitHub releases"
-             class="w-full block"
-             loading="lazy"
-             onerror="this.style.display='none';" />
-        <figcaption class="px-4 py-2 text-center text-xs text-orange-600/70 dark:text-orange-400/60 border-t border-orange-100 dark:border-orange-800/40 bg-orange-50/60 dark:bg-orange-950/30">
-          GitHub · alacroix/focusretro · Releases
-        </figcaption>
-      </figure>
-    </div> -->
         </div>
       </section>
 
@@ -1058,16 +1045,23 @@
                 data-i18n="feat.accounts.desc"
               >
                 Assignez une couleur et une icône à chaque compte pour les identifier d'un coup
-                d'œil, même quand plusieurs fenêtres sont ouvertes.
+                d'œil. L'icône apparaît aussi dans la barre des tâches Windows - chaque fenêtre est
+                reconnaissable d'un coup d'œil.
               </p>
             </div>
-            <div class="md:w-1/2">
+            <div class="flex flex-col gap-4 md:w-1/2">
               <img
                 src="screenshots/app-customization.webp"
                 alt="Personnalisation des comptes"
                 class="mx-auto block max-h-52 w-auto rounded-xl border border-gray-200 shadow-md dark:border-gray-700"
                 width="330"
                 height="328"
+                loading="lazy"
+              />
+              <img
+                src="screenshots/app-taskbar.webp"
+                alt="Icônes des personnages dans la barre des tâches Windows"
+                class="mx-auto block w-auto rounded-lg border border-gray-200 shadow-md dark:border-gray-700"
                 loading="lazy"
               />
             </div>
@@ -1442,6 +1436,36 @@
                   <td class="px-4 py-3" aria-label="Non"></td>
                 </tr>
                 <tr>
+                  <td
+                    class="px-5 py-3 font-medium text-gray-700 dark:text-gray-300"
+                    data-i18n="comp.taskbar"
+                  >
+                    Icônes personnalisées
+                  </td>
+                  <td
+                    class="bg-brand-200 px-4 py-3 text-center text-green-600 dark:bg-brand-900/50"
+                  >
+                    <svg
+                      class="mx-auto h-4 w-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      stroke-width="2.5"
+                      role="img"
+                      aria-label="Oui"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        d="M4.5 12.75l6 6 9-13.5"
+                      />
+                    </svg>
+                  </td>
+                  <td class="px-4 py-3" aria-label="Non"></td>
+                  <td class="px-4 py-3" aria-label="Non"></td>
+                  <td class="px-4 py-3" aria-label="Non"></td>
+                </tr>
+                <tr>
                   <td class="px-5 py-3 font-medium text-gray-700 dark:text-gray-300">Layouts</td>
                   <td
                     class="bg-brand-200 px-4 py-3 text-center text-green-600 dark:bg-brand-900/50"
@@ -1552,7 +1576,23 @@
                       />
                     </svg>
                   </td>
-                  <td class="px-4 py-3" aria-label="Non"></td>
+                  <td class="px-4 py-3 text-center text-green-600">
+                    <svg
+                      class="mx-auto h-4 w-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      stroke-width="2.5"
+                      role="img"
+                      aria-label="Oui"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        d="M4.5 12.75l6 6 9-13.5"
+                      />
+                    </svg>
+                  </td>
                   <td class="px-4 py-3" aria-label="Non"></td>
                 </tr>
                 <tr>
@@ -2043,7 +2083,7 @@
                   href="https://github.com/alacroix/focusretro/releases/download/v0.6.5/Focus.Retro_0.6.5_x64-setup.exe"
                   data-goatcounter-click="download-win-x64"
                   data-goatcounter-title="Download Windows x64"
-                  class="inline-flex items-center gap-2 rounded-xl bg-gray-800 px-6 py-3 font-semibold text-white shadow transition-colors hover:bg-gray-900"
+                  class="inline-flex items-center gap-2 rounded-xl bg-gray-800 px-6 py-3 font-semibold text-white shadow transition-colors hover:bg-gray-900 dark:bg-[#0067B8] dark:hover:bg-[#005CA5]"
                 >
                   <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
                     <path
@@ -2074,7 +2114,7 @@
                   href="https://github.com/alacroix/focusretro/releases/download/v0.6.5/Focus.Retro_0.6.5_x64-setup_offline.exe"
                   data-goatcounter-click="download-win-x64-offline"
                   data-goatcounter-title="Download Windows x64 Offline"
-                  class="inline-flex items-center gap-2 rounded-xl bg-gray-800 px-6 py-3 font-semibold text-white shadow transition-colors hover:bg-gray-900"
+                  class="inline-flex items-center gap-2 rounded-xl bg-gray-800 px-6 py-3 font-semibold text-white shadow transition-colors hover:bg-gray-900 dark:bg-[#0067B8] dark:hover:bg-[#005CA5]"
                 >
                   <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
                     <path
@@ -2554,7 +2594,7 @@
           "feat.pm.kicker": "Communication",
           "feat.accounts.title": "Chaque personnage, à votre image",
           "feat.accounts.desc":
-            "Assignez une couleur et une icône à chaque compte pour les identifier d'un coup d'œil, même quand plusieurs fenêtres sont ouvertes.",
+            "Assignez une couleur et une icône à chaque compte pour les identifier d'un coup d'œil. L'icône apparaît aussi dans la barre des tâches Windows - chaque fenêtre est reconnaissable d'un coup d'œil.",
           "features.minorTitle": "Et les petits plus qui font la différence",
           "prereq.mac.title": "Avant tout : deux réglages à faire",
           "prereq.mac.step2": "Autoriser « Dofus Retro » dans macOS",
@@ -2608,6 +2648,7 @@
           "install.win.s4.desc":
             "Focus Retro apparaît dans la barre des tâches. Lancez Dofus Retro et jouez normalement.",
           "comp.wheel": "Roue rapide",
+          "comp.taskbar": "Icônes personnalisées",
           "comp.offline": "Version offline",
           "install.githubLink": "Tous les téléchargements sur GitHub",
           "hero.offlineLink":
@@ -2711,7 +2752,7 @@
           "feat.pm.kicker": "Communication",
           "feat.accounts.title": "Each character, your way",
           "feat.accounts.desc":
-            "Assign a color and icon to each account to identify them at a glance, even when multiple windows are open.",
+            "Assign a color and icon to each account to identify them at a glance. The icon also shows in the Windows taskbar - each window is recognizable at a glance.",
           "features.minorTitle": "And the small details that matter",
           "prereq.mac.title": "Before you start: two settings to configure",
           "prereq.mac.step2": 'Allow "Dofus Retro" in macOS',
@@ -2764,6 +2805,7 @@
           "install.win.s4.desc":
             "Focus Retro appears in your system tray. Launch Dofus Retro and play normally.",
           "comp.wheel": "Quick wheel",
+          "comp.taskbar": "Custom icons",
           "comp.offline": "Offline version",
           "install.githubLink": "All downloads on GitHub",
           "hero.offlineLink":
@@ -2867,7 +2909,7 @@
           "feat.pm.kicker": "Comunicación",
           "feat.accounts.title": "Cada personaje, a tu manera",
           "feat.accounts.desc":
-            "Asigna un color e icono a cada cuenta para identificarlos de un vistazo, incluso cuando hay varias ventanas abiertas.",
+            "Asigna un color e icono a cada cuenta para identificarlos de un vistazo. El icono también aparece en la barra de tareas de Windows: cada ventana es reconocible de un vistazo.",
           "features.minorTitle": "Y los pequeños detalles que marcan la diferencia",
           "prereq.mac.title": "Antes de empezar: dos ajustes que configurar",
           "prereq.mac.step2": "Permitir «Dofus Retro» en macOS",
@@ -2920,6 +2962,7 @@
           "install.win.s4.desc":
             "Focus Retro aparece en la bandeja del sistema. Inicia Dofus Retro y juega normalmente.",
           "comp.wheel": "Rueda rápida",
+          "comp.taskbar": "Iconos personalizados",
           "comp.offline": "Version offline",
           "install.githubLink": "Todos los archivos en GitHub",
           "hero.offlineLink":
