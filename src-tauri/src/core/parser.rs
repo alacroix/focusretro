@@ -46,15 +46,15 @@ static RE_TURN: LazyLock<Regex> = LazyLock::new(|| {
 
 static RE_GROUP_INVITE: LazyLock<Regex> = LazyLock::new(|| {
     // Group 1: FR/ES (name at start), Group 2: EN (name after "join")
-    Regex::new(r"(?si)^(?:(.+?) (?:t'invite à rejoindre son groupe|te invita a unirte a su grupo)|You are invited to join (.+?)'s group)").unwrap()
+    Regex::new(r"(?i)^(?:(.+?) (?:t'invite à rejoindre son groupe|te invita a unirte a su grupo)|You are invited to join (.+?)'s group)").unwrap()
 });
 
 static RE_TRADE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?s)^(.+?) (?:te propose de faire un échange|offers a trade|te propone realizar un intercambio)").unwrap()
+    Regex::new(r"(?i)^(.+?) (?:te propose de faire un échange|offers a trade|te propone realizar un intercambio)").unwrap()
 });
 
 static RE_PM: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"(?s)^(?:desde|de|from) (.+?) : (.+)$").unwrap());
+    LazyLock::new(|| Regex::new(r"(?i)^(?:desde|de|from) (.+?) : (.+)$").unwrap());
 
 static RE_HTML_LINK: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r#"<a\s[^>]*>([^<]*)</a>"#).unwrap());
