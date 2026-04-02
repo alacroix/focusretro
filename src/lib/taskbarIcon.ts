@@ -74,12 +74,15 @@ export async function renderAccountIcon(
         ctx.drawImage(portrait, 2, 2, SIZE - 4, SIZE - 4);
         ctx.restore();
       } catch {
-        // portrait load failed — fall back to disc
+        // portrait load failed — fall back to disc or base icon
         if (colorValue) {
           ctx.fillStyle = colorValue;
           ctx.beginPath();
           ctx.arc(SIZE / 2, SIZE / 2, SIZE / 2 - 2, 0, Math.PI * 2);
           ctx.fill();
+        } else {
+          const base = await getBaseIcon();
+          ctx.drawImage(base, 0, 0, SIZE, SIZE);
         }
       }
     } else if (colorValue) {
@@ -87,6 +90,10 @@ export async function renderAccountIcon(
       ctx.beginPath();
       ctx.arc(SIZE / 2, SIZE / 2, SIZE / 2 - 2, 0, Math.PI * 2);
       ctx.fill();
+    } else {
+      // No icon and no color — fall back to Dofus base icon to avoid black box
+      const base = await getBaseIcon();
+      ctx.drawImage(base, 0, 0, SIZE, SIZE);
     }
   } else {
     // Classic mode
