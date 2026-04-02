@@ -123,6 +123,14 @@ export function getTradeState(): Promise<boolean> {
   return invoke("get_trade_state");
 }
 
+export function toggleWorkshopInvite(): Promise<boolean> {
+  return invoke("toggle_workshop_invite");
+}
+
+export function getWorkshopInviteState(): Promise<boolean> {
+  return invoke("get_workshop_invite_state");
+}
+
 export function togglePm(): Promise<boolean> {
   return invoke("toggle_pm");
 }

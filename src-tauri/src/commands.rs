@@ -175,6 +175,18 @@ pub fn get_trade_state(state: tauri::State<'_, Arc<AppState>>) -> bool {
     state.is_trade_enabled()
 }
 
+#[tauri::command]
+pub fn toggle_workshop_invite(state: tauri::State<'_, Arc<AppState>>) -> bool {
+    let new_state = !state.is_workshop_enabled();
+    state.set_workshop(new_state);
+    new_state
+}
+
+#[tauri::command]
+pub fn get_workshop_invite_state(state: tauri::State<'_, Arc<AppState>>) -> bool {
+    state.is_workshop_enabled()
+}
+
 #[cfg(target_os = "windows")]
 #[tauri::command]
 pub fn toggle_taskbar_ungroup(state: tauri::State<'_, Arc<AppState>>) -> bool {

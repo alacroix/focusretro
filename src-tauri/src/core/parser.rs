@@ -23,6 +23,14 @@ pub struct TradeRequest {
     pub requester_name: String,
 }
 
+#[derive(Debug, Clone)]
+pub struct WorkshopInviteNotification {
+    /// The character that received the invite (window to focus).
+    pub receiver_name: String,
+    /// The character that sent the invite.
+    pub inviter_name: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PrivateMessage {
     pub receiver_name: String,
@@ -35,6 +43,7 @@ pub struct PrivateMessage {
 pub enum GameEvent {
     Turn(TurnNotification),
     GroupInvite(GroupInviteNotification),
+    WorkshopInvite(WorkshopInviteNotification),
     Trade(TradeRequest),
     PrivateMessage(PrivateMessage),
 }
@@ -47,6 +56,11 @@ static RE_TURN: LazyLock<Regex> = LazyLock::new(|| {
 static RE_GROUP_INVITE: LazyLock<Regex> = LazyLock::new(|| {
     // Group 1: FR/ES (name at start), Group 2: EN (name after "join")
     Regex::new(r"(?i)^(?:(.+?) (?:t'invite à rejoindre son groupe|te invita a unirte a su grupo)|You are invited to join (.+?)'s group)").unwrap()
+});
+
+static RE_WORKSHOP_INVITE: LazyLock<Regex> = LazyLock::new(|| {
+    // Group 1: FR/ES (name at start), Group 2: EN (name after "join")
+    Regex::new(r"(?i)^(?:(.+?) (?:t'invite à rejoindre son atelier|te invita a pasarte por su taller)|You are invited to join (.+?)'s workshop)").unwrap()
 });
 
 static RE_TRADE: LazyLock<Regex> = LazyLock::new(|| {
@@ -102,6 +116,20 @@ fn parse_group_invite(text: &str) -> Option<String> {
     None
 }
 
+fn parse_workshop_invite(text: &str) -> Option<String> {
+    let text = text.trim();
+    if let Some(caps) = RE_WORKSHOP_INVITE.captures(text) {
+        // Group 1: FR/ES name, Group 2: EN name
+        let name = [1, 2]
+            .iter()
+            .filter_map(|&i| caps.get(i))
+            .map(|m| m.as_str().trim())
+            .find(|s| !s.is_empty())?;
+        return Some(name.to_string());
+    }
+    None
+}
+
 fn parse_trade(text: &str) -> Option<String> {
     let text = text.trim();
     if let Some(caps) = RE_TRADE.captures(text) {
@@ -137,7 +165,7 @@ fn extract_character_from_title(text: &str) -> Option<String> {
 }
 
 /// Parse all segments and return the first game event found.
-/// Priority: turn > group invite > trade > PM
+/// Priority: turn > group invite > workshop invite > trade > PM
 pub fn parse_game_event(segments: &[String]) -> Option<GameEvent> {
     // 1. Turn notifications — iterate in reverse so the specific body segment is matched
     //    before the earlier combined segment (which also ends with the turn suffix/pattern).
@@ -178,7 +206,17 @@ pub fn parse_game_event(segments: &[String]) -> Option<GameEvent> {
         }
     }
 
-    // 3. Trade request
+    // 3. Workshop invite
+    for segment in segments.iter().rev() {
+        if let Some(inviter) = parse_workshop_invite(segment) {
+            return Some(GameEvent::WorkshopInvite(WorkshopInviteNotification {
+                receiver_name: receiver_name.clone(),
+                inviter_name: inviter,
+            }));
+        }
+    }
+
+    // 4. Trade request
     for segment in segments.iter().rev() {
         if let Some(requester) = parse_trade(segment) {
             return Some(GameEvent::Trade(TradeRequest {
@@ -188,7 +226,7 @@ pub fn parse_game_event(segments: &[String]) -> Option<GameEvent> {
         }
     }
 
-    // 4. Private message
+    // 5. Private message
     for segment in segments.iter().rev() {
         if let Some((sender, message)) = parse_pm(segment) {
             return Some(GameEvent::PrivateMessage(PrivateMessage {
@@ -462,5 +500,70 @@ mod tests {
     #[test]
     fn test_parse_empty() {
         assert!(parse_turn_notification("").is_none());
+    }
+
+    #[test]
+    fn test_parse_french_workshop_invite() {
+        let segments = vec![
+            "Notification Center".to_string(),
+            "Dofus Retro, Kura-noire - Dofus Retro v1.47.20, Testy t'invite à rejoindre son atelier.\nAcceptes-tu ?".to_string(),
+            "Kura-noire - Dofus Retro v1.47.20".to_string(),
+            "Testy t'invite à rejoindre son atelier.\nAcceptes-tu ?".to_string(),
+        ];
+        let result = parse_game_event(&segments);
+        assert!(matches!(result, Some(GameEvent::WorkshopInvite(_))));
+        if let Some(GameEvent::WorkshopInvite(w)) = result {
+            assert_eq!(w.receiver_name, "Kura-noire");
+            assert_eq!(w.inviter_name, "Testy");
+        }
+    }
+
+    #[test]
+    fn test_parse_english_workshop_invite() {
+        let segments = vec![
+            "Notification Center".to_string(),
+            "Dofus Retro, Kura-noire - Dofus Retro v1.47.20, You are invited to join Testy's workshop. Do you accept?".to_string(),
+            "Kura-noire - Dofus Retro v1.47.20".to_string(),
+            "You are invited to join Testy's workshop. Do you accept?".to_string(),
+        ];
+        let result = parse_game_event(&segments);
+        assert!(matches!(result, Some(GameEvent::WorkshopInvite(_))));
+        if let Some(GameEvent::WorkshopInvite(w)) = result {
+            assert_eq!(w.receiver_name, "Kura-noire");
+            assert_eq!(w.inviter_name, "Testy");
+        }
+    }
+
+    #[test]
+    fn test_workshop_body_does_not_match_group_invite() {
+        // Workshop invite body must not be parsed as a group invite
+        let segments = vec![
+            "Notification Center".to_string(),
+            "Dofus Retro, Kura-noire - Dofus Retro v1.47.20, Testy t'invite à rejoindre son atelier.\nAcceptes-tu ?".to_string(),
+            "Kura-noire - Dofus Retro v1.47.20".to_string(),
+            "Testy t'invite à rejoindre son atelier.\nAcceptes-tu ?".to_string(),
+        ];
+        let result = parse_game_event(&segments);
+        assert!(
+            matches!(result, Some(GameEvent::WorkshopInvite(_))),
+            "expected WorkshopInvite, not GroupInvite"
+        );
+        assert!(!matches!(result, Some(GameEvent::GroupInvite(_))));
+    }
+
+    #[test]
+    fn test_parse_spanish_workshop_invite() {
+        let segments = vec![
+            "Notification Center".to_string(),
+            "Dofus Retro, Kura-noire - Dofus Retro v1.47.20, Testy te invita a pasarte por su taller. ¿Deseas aceptar?".to_string(),
+            "Kura-noire - Dofus Retro v1.47.20".to_string(),
+            "Testy te invita a pasarte por su taller. ¿Deseas aceptar?".to_string(),
+        ];
+        let result = parse_game_event(&segments);
+        assert!(matches!(result, Some(GameEvent::WorkshopInvite(_))));
+        if let Some(GameEvent::WorkshopInvite(w)) = result {
+            assert_eq!(w.receiver_name, "Kura-noire");
+            assert_eq!(w.inviter_name, "Testy");
+        }
     }
 }

@@ -249,6 +249,22 @@ pub(crate) fn route_event(event: &parser::GameEvent, state: &AppState) -> RouteA
                 event_type: "group_invite".into(),
             }
         }
+        parser::GameEvent::WorkshopInvite(invite) => {
+            if !state.is_workshop_enabled() {
+                return RouteAction::Ignore;
+            }
+            if !state.has_account(&invite.inviter_name) {
+                return RouteAction::Ignore;
+            }
+            if state.is_account_skipped(&invite.receiver_name) {
+                return RouteAction::Ignore;
+            }
+            RouteAction::Focus {
+                name: invite.receiver_name.clone(),
+                auto_accept: state.is_auto_accept_enabled(),
+                event_type: "workshop_invite".into(),
+            }
+        }
         parser::GameEvent::Trade(trade) => {
             if !state.is_trade_enabled() {
                 return RouteAction::Ignore;
@@ -328,6 +344,13 @@ fn start_notification_listener(handle: AppHandle, state: Arc<AppState>) {
                                     );
                                     let _ = callback_handle.emit("trade-request", &name);
                                 }
+                                parser::GameEvent::WorkshopInvite(inv) => {
+                                    info!(
+                                        "[Autoswitch] Workshop invite: {} invited by {}",
+                                        name, inv.inviter_name
+                                    );
+                                    let _ = callback_handle.emit("workshop-invite", &name);
+                                }
                                 _ => {}
                             }
                             focus_character_with_fallback(
@@ -401,6 +424,7 @@ mod tests {
     use super::*;
     use crate::core::parser::{
         GameEvent, GroupInviteNotification, PrivateMessage, TradeRequest, TurnNotification,
+        WorkshopInviteNotification,
     };
     use std::path::PathBuf;
     use std::sync::atomic::Ordering;
@@ -443,6 +467,13 @@ mod tests {
             receiver_name: receiver.into(),
             sender_name: sender.into(),
             message: "hello".into(),
+        })
+    }
+
+    fn workshop(receiver: &str, inviter: &str) -> GameEvent {
+        GameEvent::WorkshopInvite(WorkshopInviteNotification {
+            receiver_name: receiver.into(),
+            inviter_name: inviter.into(),
         })
     }
 
@@ -631,5 +662,68 @@ mod tests {
             route_event(&trade("Craette", "Alice"), &state),
             RouteAction::Ignore
         ));
+    }
+
+    // --- WorkshopInvite ---
+
+    #[test]
+    fn workshop_invite_known_inviter_returns_focus() {
+        let state = make_state();
+        state.update_accounts(vec![make_window("Alice", 1), make_window("Bob", 2)]);
+        match route_event(&workshop("Bob", "Alice"), &state) {
+            RouteAction::Focus {
+                name,
+                auto_accept,
+                event_type,
+            } => {
+                assert_eq!(name, "Bob");
+                assert!(!auto_accept);
+                assert_eq!(event_type, "workshop_invite");
+            }
+            other => panic!("expected Focus, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn workshop_invite_unknown_inviter_returns_ignore() {
+        let state = make_state();
+        state.update_accounts(vec![make_window("Bob", 1)]);
+        assert!(matches!(
+            route_event(&workshop("Bob", "Stranger"), &state),
+            RouteAction::Ignore
+        ));
+    }
+
+    #[test]
+    fn workshop_invite_toggle_off_returns_ignore() {
+        let state = make_state();
+        state.update_accounts(vec![make_window("Alice", 1), make_window("Bob", 2)]);
+        state.workshop_enabled.store(false, Ordering::Relaxed);
+        assert!(matches!(
+            route_event(&workshop("Bob", "Alice"), &state),
+            RouteAction::Ignore
+        ));
+    }
+
+    #[test]
+    fn workshop_invite_skipped_receiver_returns_ignore() {
+        let state = make_state();
+        state.update_accounts(vec![make_window("Craette", 1), make_window("Alice", 2)]);
+        state.set_skipped("Craette", true);
+        assert!(matches!(
+            route_event(&workshop("Craette", "Alice"), &state),
+            RouteAction::Ignore
+        ));
+    }
+
+    #[test]
+    fn workshop_invite_auto_accept_on() {
+        let state = make_state();
+        state.update_accounts(vec![make_window("Alice", 1), make_window("Bob", 2)]);
+        state.auto_accept_enabled.store(true, Ordering::Relaxed);
+        match route_event(&workshop("Bob", "Alice"), &state) {
+            RouteAction::Focus { auto_accept, .. } => assert!(auto_accept),
+            other => panic!("expected Focus, got {:?}", other),
+        }
     }
 }

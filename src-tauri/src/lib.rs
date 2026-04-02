@@ -71,6 +71,8 @@ pub fn run() {
             commands::get_group_invite_state,
             commands::toggle_trade,
             commands::get_trade_state,
+            commands::toggle_workshop_invite,
+            commands::get_workshop_invite_state,
             commands::toggle_taskbar_ungroup,
             commands::get_taskbar_ungroup_state,
             commands::apply_window_icon,

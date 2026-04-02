@@ -23,6 +23,8 @@ import {
   setCloseTotray as setCloseTotrayCmd,
   toggleTaskbarUngroup,
   setIconStyle as setIconStyleCmd,
+  toggleWorkshopInvite,
+  getWorkshopInviteState,
 } from "../lib/commands";
 import { renderAccountIcon } from "../lib/taskbarIcon";
 
@@ -341,6 +343,7 @@ function Settings({
   const [autoswitch, setAutoswitch] = useState(true);
   const [groupInvite, setGroupInvite] = useState(true);
   const [trade, setTrade] = useState(true);
+  const [workshop, setWorkshop] = useState(true);
   const [pm, setPm] = useState(true);
   const [autoAccept, setAutoAccept] = useState(false);
   const [closeTotray, setCloseTotray] = useState(true);
@@ -357,6 +360,7 @@ function Settings({
     getAutoswitchState().then(setAutoswitch);
     getGroupInviteState().then(setGroupInvite);
     getTradeState().then(setTrade);
+    getWorkshopInviteState().then(setWorkshop);
     getPmState().then(setPm);
     getAutoAcceptState().then(setAutoAccept);
     getCloseTotray().then(setCloseTotray);
@@ -455,22 +459,53 @@ function Settings({
           onLabel={t("settings.on")}
           offLabel={t("settings.off")}
         />
-        <ToggleRow
-          label={t("settings.group_invite")}
-          description={t("settings.group_invite_desc")}
-          enabled={groupInvite}
-          onToggle={async () => setGroupInvite(await toggleGroupInvite())}
-          onLabel={t("settings.on")}
-          offLabel={t("settings.off")}
-        />
-        <ToggleRow
-          label={t("settings.trade")}
-          description={t("settings.trade_desc")}
-          enabled={trade}
-          onToggle={async () => setTrade(await toggleTrade())}
-          onLabel={t("settings.on")}
-          offLabel={t("settings.off")}
-        />
+        <div className="flex items-center justify-between py-3">
+          <span className="text-xs font-medium text-gray-800 dark:text-gray-200">
+            {t("settings.focus_interactions")}
+          </span>
+          <div className="flex gap-2">
+            {(
+              [
+                {
+                  key: "group",
+                  ext: "png",
+                  enabled: groupInvite,
+                  toggle: () => toggleGroupInvite().then(setGroupInvite),
+                  tooltip: t("settings.group_invite_tooltip"),
+                },
+                {
+                  key: "trade",
+                  ext: "svg",
+                  enabled: trade,
+                  toggle: () => toggleTrade().then(setTrade),
+                  tooltip: t("settings.trade_tooltip"),
+                },
+                {
+                  key: "workshop",
+                  ext: "svg",
+                  enabled: workshop,
+                  toggle: () => toggleWorkshopInvite().then(setWorkshop),
+                  tooltip: t("settings.workshop_invite_tooltip"),
+                },
+              ] as const
+            ).map(({ key, ext, enabled, toggle, tooltip }) => (
+              <button
+                key={key}
+                title={tooltip}
+                onClick={toggle}
+                className={`cursor-pointer rounded-lg p-1 transition-all ${
+                  enabled ? "opacity-100" : "opacity-40 grayscale"
+                }`}
+              >
+                <img
+                  src={`/settings/${key}.${ext}`}
+                  alt={tooltip}
+                  className="h-6 w-6 object-contain"
+                />
+              </button>
+            ))}
+          </div>
+        </div>
         {navigator.userAgent.includes("Windows NT") && (
           <ToggleRow
             label={t("settings.taskbar_ungroup")}

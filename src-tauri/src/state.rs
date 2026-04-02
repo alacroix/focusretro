@@ -123,9 +123,15 @@ fn default_language() -> String {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Preferences {
+    #[serde(default = "default_true")]
     pub autoswitch_enabled: bool,
+    #[serde(default = "default_true")]
     pub group_invite_enabled: bool,
+    #[serde(default = "default_true")]
     pub trade_enabled: bool,
+    #[serde(default = "default_true")]
+    pub workshop_enabled: bool,
+    #[serde(default = "default_true")]
     pub pm_enabled: bool,
     pub auto_accept_enabled: bool,
     pub show_debug: bool,
@@ -144,6 +150,10 @@ pub struct Preferences {
     pub taskbar_ungroup_enabled: bool,
     #[serde(default = "default_icon_style")]
     pub icon_style: String,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 fn default_close_to_tray() -> bool {
@@ -165,6 +175,7 @@ impl Default for Preferences {
             autoswitch_enabled: true,
             group_invite_enabled: true,
             trade_enabled: true,
+            workshop_enabled: true,
             pm_enabled: true,
             auto_accept_enabled: false,
             show_debug: false,
@@ -242,6 +253,7 @@ pub struct AppState {
     pub autoswitch_enabled: AtomicBool,
     pub group_invite_enabled: AtomicBool,
     pub trade_enabled: AtomicBool,
+    pub workshop_enabled: AtomicBool,
     pub pm_enabled: AtomicBool,
     pub auto_accept_enabled: AtomicBool,
     pub show_debug: AtomicBool,
@@ -304,6 +316,7 @@ impl AppState {
             autoswitch_enabled: AtomicBool::new(prefs.autoswitch_enabled),
             group_invite_enabled: AtomicBool::new(prefs.group_invite_enabled),
             trade_enabled: AtomicBool::new(prefs.trade_enabled),
+            workshop_enabled: AtomicBool::new(prefs.workshop_enabled),
             pm_enabled: AtomicBool::new(prefs.pm_enabled),
             auto_accept_enabled: AtomicBool::new(prefs.auto_accept_enabled),
             show_debug: AtomicBool::new(prefs.show_debug),
@@ -344,6 +357,7 @@ impl AppState {
             autoswitch_enabled: self.autoswitch_enabled.load(Ordering::Relaxed),
             group_invite_enabled: self.group_invite_enabled.load(Ordering::Relaxed),
             trade_enabled: self.trade_enabled.load(Ordering::Relaxed),
+            workshop_enabled: self.workshop_enabled.load(Ordering::Relaxed),
             pm_enabled: self.pm_enabled.load(Ordering::Relaxed),
             auto_accept_enabled: self.auto_accept_enabled.load(Ordering::Relaxed),
             show_debug: self.show_debug.load(Ordering::Relaxed),
@@ -396,6 +410,15 @@ impl AppState {
 
     pub fn set_trade(&self, enabled: bool) {
         self.trade_enabled.store(enabled, Ordering::Relaxed);
+        self.save();
+    }
+
+    pub fn is_workshop_enabled(&self) -> bool {
+        self.workshop_enabled.load(Ordering::Relaxed)
+    }
+
+    pub fn set_workshop(&self, enabled: bool) {
+        self.workshop_enabled.store(enabled, Ordering::Relaxed);
         self.save();
     }
 
