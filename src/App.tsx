@@ -52,6 +52,7 @@ function App() {
   const [hasInputMonitoring, setHasInputMonitoring] = useState(false);
   const [tab, setTab] = useState<Tab>("accounts");
   const [showDebug, setShowDebug] = useState(false);
+  const [pmEnabled, setPmEnabled] = useState(true);
   const [hotkeys, setHotkeys] = useState<HotkeyBinding[]>([]);
   const [focusedName, setFocusedName] = useState<string | null>(null);
   const [pendingUpdate, setPendingUpdate] = useState<Update | null>(null);
@@ -100,6 +101,7 @@ function App() {
         setPermissionsChecked(true);
         setHotkeys(s.hotkeys);
         setShowDebug(s.show_debug);
+        setPmEnabled(s.pm_enabled);
         if (isWindows) setTaskbarUngroup(s.taskbar_ungroup);
         if (isWindows) setIconStyle((s.icon_style as "classic" | "portrait") ?? "classic");
         setThemeState(s.theme);
@@ -271,9 +273,14 @@ function App() {
     return false;
   };
 
+  const handleTogglePm = (v: boolean) => {
+    setPmEnabled(v);
+    if (!v && tab === "messages") setTab("accounts");
+  };
+
   const visibleTabs = [
     "accounts",
-    "messages",
+    ...(pmEnabled ? ["messages"] : []),
     "settings",
     ...(showDebug ? ["debug"] : []),
   ] as Tab[];
@@ -520,6 +527,8 @@ function App() {
           <Settings
             showDebug={showDebug}
             onToggleDebug={setShowDebug}
+            pmEnabled={pmEnabled}
+            onTogglePm={handleTogglePm}
             theme={theme}
             onThemeChange={handleThemeChange}
             updateConsent={updateConsent}

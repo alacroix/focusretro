@@ -39,6 +39,7 @@ export interface InitialState {
   language: string;
   hotkeys: HotkeyBinding[];
   show_debug: boolean;
+  pm_enabled: boolean;
   theme: string;
   update_consent: boolean | null;
   taskbar_ungroup: boolean;

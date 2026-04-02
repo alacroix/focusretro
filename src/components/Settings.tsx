@@ -9,7 +9,6 @@ import {
   toggleGroupInvite,
   getTradeState,
   toggleTrade,
-  getPmState,
   togglePm,
   getAutoAcceptState,
   toggleAutoAccept,
@@ -315,6 +314,8 @@ const KONAMI = [
 function Settings({
   showDebug,
   onToggleDebug,
+  pmEnabled,
+  onTogglePm,
   theme,
   onThemeChange,
   updateConsent,
@@ -328,6 +329,8 @@ function Settings({
 }: {
   showDebug: boolean;
   onToggleDebug: (v: boolean) => void;
+  pmEnabled: boolean;
+  onTogglePm: (v: boolean) => void;
   theme: string;
   onThemeChange: (t: string) => void;
   updateConsent: boolean | null | undefined;
@@ -344,7 +347,6 @@ function Settings({
   const [groupInvite, setGroupInvite] = useState(true);
   const [trade, setTrade] = useState(true);
   const [workshop, setWorkshop] = useState(true);
-  const [pm, setPm] = useState(true);
   const [autoAccept, setAutoAccept] = useState(false);
   const [closeTotray, setCloseTotray] = useState(true);
   const [hotkeys, setHotkeys] = useState<HotkeyBinding[]>([]);
@@ -361,7 +363,6 @@ function Settings({
     getGroupInviteState().then(setGroupInvite);
     getTradeState().then(setTrade);
     getWorkshopInviteState().then(setWorkshop);
-    getPmState().then(setPm);
     getAutoAcceptState().then(setAutoAccept);
     getCloseTotray().then(setCloseTotray);
     getHotkeys().then(setHotkeys);
@@ -550,8 +551,8 @@ function Settings({
         <ToggleRow
           label={t("settings.pm")}
           description={t("settings.pm_desc")}
-          enabled={pm}
-          onToggle={async () => setPm(await togglePm())}
+          enabled={pmEnabled}
+          onToggle={async () => onTogglePm(await togglePm())}
           onLabel={t("settings.on")}
           offLabel={t("settings.off")}
         />
