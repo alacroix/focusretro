@@ -131,6 +131,23 @@ fn js_code_to_mac_keycode(code: &str) -> Option<u16> {
         "F10" => Some(0x6D),
         "F11" => Some(0x67),
         "F12" => Some(0x6F),
+        // Numpad digits
+        "Numpad0" => Some(0x52),
+        "Numpad1" => Some(0x53),
+        "Numpad2" => Some(0x54),
+        "Numpad3" => Some(0x55),
+        "Numpad4" => Some(0x56),
+        "Numpad5" => Some(0x57),
+        "Numpad6" => Some(0x58),
+        "Numpad7" => Some(0x59),
+        "Numpad8" => Some(0x5B),
+        "Numpad9" => Some(0x5C),
+        // Numpad operators
+        "NumpadAdd" => Some(0x45),
+        "NumpadSubtract" => Some(0x4E),
+        "NumpadMultiply" => Some(0x43),
+        "NumpadDivide" => Some(0x4B),
+        "NumpadDecimal" => Some(0x41),
         _ => None,
     }
 }
@@ -470,6 +487,38 @@ mod tests {
             KC_F1,
             flags,
             &binding("F1", true, false, false, false)
+        ));
+    }
+
+    // --- Numpad key mappings ---
+    const KC_NUMPAD0: u16 = 0x52;
+    const KC_NUMPAD_ADD: u16 = 0x45;
+    const KC_NUMPAD_DECIMAL: u16 = 0x41;
+
+    #[test]
+    fn numpad0_maps_correctly() {
+        assert_eq!(js_code_to_mac_keycode("Numpad0"), Some(KC_NUMPAD0));
+    }
+
+    #[test]
+    fn numpad_add_maps_correctly() {
+        assert_eq!(js_code_to_mac_keycode("NumpadAdd"), Some(KC_NUMPAD_ADD));
+    }
+
+    #[test]
+    fn numpad_decimal_maps_correctly() {
+        assert_eq!(
+            js_code_to_mac_keycode("NumpadDecimal"),
+            Some(KC_NUMPAD_DECIMAL)
+        );
+    }
+
+    #[test]
+    fn numpad0_binding_matches() {
+        assert!(matches_binding(
+            KC_NUMPAD0,
+            0,
+            &binding("Numpad0", false, false, false, false)
         ));
     }
 }

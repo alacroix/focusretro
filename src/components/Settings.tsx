@@ -128,11 +128,51 @@ const JS_KEY_TO_MAC_KEYCODE: Record<string, string> = {
   F10: "F10",
   F11: "F11",
   F12: "F12",
+  Numpad0: "Numpad0",
+  Numpad1: "Numpad1",
+  Numpad2: "Numpad2",
+  Numpad3: "Numpad3",
+  Numpad4: "Numpad4",
+  Numpad5: "Numpad5",
+  Numpad6: "Numpad6",
+  Numpad7: "Numpad7",
+  Numpad8: "Numpad8",
+  Numpad9: "Numpad9",
+  NumpadAdd: "NumpadAdd",
+  NumpadSubtract: "NumpadSubtract",
+  NumpadMultiply: "NumpadMultiply",
+  NumpadDivide: "NumpadDivide",
+  NumpadDecimal: "NumpadDecimal",
 };
 
 const MOUSE_BUTTON_LABELS: Record<string, string> = {
   Mouse4: "Mouse 4",
   Mouse5: "Mouse 5",
+};
+
+const ARROW_LABELS: Record<string, string> = {
+  ArrowLeft: "←",
+  ArrowRight: "→",
+  ArrowUp: "↑",
+  ArrowDown: "↓",
+};
+
+const NUMPAD_LABELS: Record<string, string> = {
+  Numpad0: "Num 0",
+  Numpad1: "Num 1",
+  Numpad2: "Num 2",
+  Numpad3: "Num 3",
+  Numpad4: "Num 4",
+  Numpad5: "Num 5",
+  Numpad6: "Num 6",
+  Numpad7: "Num 7",
+  Numpad8: "Num 8",
+  Numpad9: "Num 9",
+  NumpadAdd: "Num +",
+  NumpadSubtract: "Num -",
+  NumpadMultiply: "Num *",
+  NumpadDivide: "Num /",
+  NumpadDecimal: "Num .",
 };
 
 function formatHotkeyLabel(hk: HotkeyBinding): string {
@@ -141,15 +181,10 @@ function formatHotkeyLabel(hk: HotkeyBinding): string {
   if (hk.ctrl) parts.push("Ctrl");
   if (hk.alt) parts.push("Alt");
   if (hk.shift) parts.push("Shift");
-  const ARROW_LABELS: Record<string, string> = {
-    ArrowLeft: "←",
-    ArrowRight: "→",
-    ArrowUp: "↑",
-    ArrowDown: "↓",
-  };
   parts.push(
     MOUSE_BUTTON_LABELS[hk.key] ??
       ARROW_LABELS[hk.key] ??
+      NUMPAD_LABELS[hk.key] ??
       hk.key.replace("Key", "").replace("Digit", ""),
   );
   return parts.join(" + ");

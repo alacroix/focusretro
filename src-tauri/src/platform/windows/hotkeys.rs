@@ -89,6 +89,23 @@ fn js_code_to_vk(code: &str) -> Option<u16> {
         "ArrowUp" => Some(0x26),
         "ArrowRight" => Some(0x27),
         "ArrowDown" => Some(0x28),
+        // Numpad digits → VK_NUMPAD0–VK_NUMPAD9 (0x60–0x69)
+        "Numpad0" => Some(0x60),
+        "Numpad1" => Some(0x61),
+        "Numpad2" => Some(0x62),
+        "Numpad3" => Some(0x63),
+        "Numpad4" => Some(0x64),
+        "Numpad5" => Some(0x65),
+        "Numpad6" => Some(0x66),
+        "Numpad7" => Some(0x67),
+        "Numpad8" => Some(0x68),
+        "Numpad9" => Some(0x69),
+        // Numpad operators
+        "NumpadMultiply" => Some(0x6A),
+        "NumpadAdd" => Some(0x6B),
+        "NumpadSubtract" => Some(0x6D),
+        "NumpadDecimal" => Some(0x6E),
+        "NumpadDivide" => Some(0x6F),
         _ => None,
     }
 }
@@ -618,6 +635,38 @@ mod tests {
             false,
             false,
             &binding("F1", false, false, true, true)
+        ));
+    }
+
+    // --- Numpad key mappings ---
+    const VK_NUMPAD0: u16 = 0x60;
+    const VK_NUMPAD_ADD: u16 = 0x6B;
+    const VK_NUMPAD_DECIMAL: u16 = 0x6E;
+
+    #[test]
+    fn numpad0_maps_correctly() {
+        assert_eq!(js_code_to_vk("Numpad0"), Some(VK_NUMPAD0));
+    }
+
+    #[test]
+    fn numpad_add_maps_correctly() {
+        assert_eq!(js_code_to_vk("NumpadAdd"), Some(VK_NUMPAD_ADD));
+    }
+
+    #[test]
+    fn numpad_decimal_maps_correctly() {
+        assert_eq!(js_code_to_vk("NumpadDecimal"), Some(VK_NUMPAD_DECIMAL));
+    }
+
+    #[test]
+    fn numpad0_binding_matches() {
+        assert!(matches_keyboard_binding(
+            VK_NUMPAD0,
+            false,
+            false,
+            false,
+            false,
+            &binding("Numpad0", false, false, false, false)
         ));
     }
 
