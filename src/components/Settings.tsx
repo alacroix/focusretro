@@ -175,7 +175,7 @@ const NUMPAD_LABELS: Record<string, string> = {
   NumpadDecimal: "Num .",
 };
 
-function formatHotkeyLabel(hk: HotkeyBinding): string {
+function formatHotkeyLabel(hk: HotkeyBinding, layoutMap: Map<string, string>): string {
   const parts: string[] = [];
   if (hk.cmd) parts.push("Cmd");
   if (hk.ctrl) parts.push("Ctrl");
@@ -185,7 +185,11 @@ function formatHotkeyLabel(hk: HotkeyBinding): string {
     MOUSE_BUTTON_LABELS[hk.key] ??
       ARROW_LABELS[hk.key] ??
       NUMPAD_LABELS[hk.key] ??
-      hk.key.replace("Key", "").replace("Digit", ""),
+      (hk.key.startsWith("Key")
+        ? (layoutMap.get(hk.key)?.toUpperCase() ?? hk.key.replace("Key", ""))
+        : hk.key.startsWith("Digit")
+          ? hk.key.replace("Digit", "")
+          : hk.key),
   );
   return parts.join(" + ");
 }
@@ -199,6 +203,7 @@ function HotkeyRow({
   changeLabel,
   cancelLabel,
   pressKeyLabel,
+  layoutMap,
 }: {
   action: string;
   actionLabel: string;
@@ -208,6 +213,7 @@ function HotkeyRow({
   changeLabel: string;
   cancelLabel: string;
   pressKeyLabel: string;
+  layoutMap: Map<string, string>;
 }) {
   return (
     <div className="flex items-center justify-between py-2">
@@ -219,7 +225,7 @@ function HotkeyRow({
           </span>
         ) : (
           <kbd className="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-[11px] whitespace-nowrap text-gray-700 dark:bg-gray-800 dark:text-gray-400">
-            {binding && binding.key ? formatHotkeyLabel(binding) : "—"}
+            {binding && binding.key ? formatHotkeyLabel(binding, layoutMap) : "—"}
           </kbd>
         )}
         <button
@@ -390,6 +396,7 @@ function Settings({
   const [version, setVersion] = useState("");
   const [unlocked, setUnlocked] = useState(false);
   const [checkState, setCheckState] = useState<"idle" | "checking" | "up-to-date">("idle");
+  const [layoutMap, setLayoutMap] = useState<Map<string, string>>(new Map());
   const checkTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const konamiProgress = useState<number>(0);
 
@@ -402,6 +409,7 @@ function Settings({
     getCloseTotray().then(setCloseTotray);
     getHotkeys().then(setHotkeys);
     getVersion().then(setVersion);
+    navigator.keyboard?.getLayoutMap().then(setLayoutMap);
   }, []);
 
   useEffect(() => {
@@ -699,6 +707,7 @@ function Settings({
             changeLabel={t("hotkeys.change")}
             cancelLabel={t("hotkeys.cancel")}
             pressKeyLabel={t("hotkeys.press_key")}
+            layoutMap={layoutMap}
           />
         ))}
       </div>
