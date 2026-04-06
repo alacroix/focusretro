@@ -325,10 +325,10 @@ unsafe extern "system" fn hotkey_callback(ncode: i32, wparam: WPARAM, lparam: LP
         if let Some(ref c) = *ctx.borrow() {
             let hotkeys = c.state.get_hotkeys();
             for binding in &hotkeys {
-                if matches_keyboard_binding(vk, shift, ctrl, alt, cmd, binding) {
-                    if fire_action(&binding.action.clone(), c) {
-                        return true;
-                    }
+                if matches_keyboard_binding(vk, shift, ctrl, alt, cmd, binding)
+                    && fire_action(&binding.action.clone(), c)
+                {
+                    return true;
                 }
             }
         }
@@ -448,10 +448,10 @@ unsafe extern "system" fn mouse_callback(ncode: i32, wparam: WPARAM, lparam: LPA
         if let Some(ref c) = *ctx.borrow() {
             let hotkeys = c.state.get_hotkeys();
             for binding in &hotkeys {
-                if matches_mouse_binding(button, shift, ctrl, alt, cmd, binding) {
-                    if fire_action(&binding.action.clone(), c) {
-                        return true;
-                    }
+                if matches_mouse_binding(button, shift, ctrl, alt, cmd, binding)
+                    && fire_action(&binding.action.clone(), c)
+                {
+                    return true;
                 }
             }
         }

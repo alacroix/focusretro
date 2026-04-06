@@ -73,11 +73,6 @@ pub fn get_foreground_info() -> (u64, u32) {
     }
 }
 
-/// Convenience wrapper for callers that only need the window ID.
-pub fn get_foreground_window_id() -> u64 {
-    get_foreground_info().0
-}
-
 pub fn create_window_manager() -> Box<dyn WindowManager> {
     #[cfg(target_os = "macos")]
     {

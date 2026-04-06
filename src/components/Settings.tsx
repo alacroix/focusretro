@@ -417,7 +417,11 @@ function Settings({
     getCloseTotray().then(setCloseTotray);
     getHotkeys().then(setHotkeys);
     getVersion().then(setVersion);
-    navigator.keyboard?.getLayoutMap().then(setLayoutMap);
+    (
+      navigator as Navigator & { keyboard?: { getLayoutMap(): Promise<Map<string, string>> } }
+    ).keyboard
+      ?.getLayoutMap()
+      .then(setLayoutMap);
   }, []);
 
   useEffect(() => {
@@ -725,7 +729,6 @@ function Settings({
       <div className="divide-y divide-gray-200 dark:divide-gray-800/50">
         <ToggleRow
           label={t("hotkeys.focused_only")}
-          description={t("hotkeys.focused_only_desc")}
           enabled={hotkeysFocusedOnly}
           onToggle={() => onToggleHotkeysFocusedOnly(!hotkeysFocusedOnly)}
           onLabel={t("settings.on")}
@@ -733,7 +736,6 @@ function Settings({
         />
         <ToggleRow
           label={t("hotkeys.consume")}
-          description={t("hotkeys.consume_desc")}
           enabled={hotkeysConsume}
           onToggle={() => onToggleHotkeysConsume(!hotkeysConsume)}
           onLabel={t("settings.on")}

@@ -70,9 +70,7 @@
   "hotkeys.press_key": "Press a key…",
   "hotkeys.reset": "Reset to defaults",
   "hotkeys.focused_only": "Ignore outside Dofus",
-  "hotkeys.focused_only_desc": "",
   "hotkeys.consume": "Intercept the key",
-  "hotkeys.consume_desc": "",
 
   "language.title": "Language",
   "language.en": "English",
