@@ -367,6 +367,10 @@ function Settings({
   iconStyle,
   onIconStyleChange,
   onHotkeysChange,
+  hotkeysFocusedOnly,
+  onToggleHotkeysFocusedOnly,
+  hotkeysConsume,
+  onToggleHotkeysConsume,
 }: {
   showDebug: boolean;
   onToggleDebug: (v: boolean) => void;
@@ -382,6 +386,10 @@ function Settings({
   iconStyle: "classic" | "portrait";
   onIconStyleChange: (style: "classic" | "portrait") => void;
   onHotkeysChange?: (bindings: HotkeyBinding[]) => void;
+  hotkeysFocusedOnly: boolean;
+  onToggleHotkeysFocusedOnly: (v: boolean) => void;
+  hotkeysConsume: boolean;
+  onToggleHotkeysConsume: (v: boolean) => void;
 }) {
   const { t, i18n } = useTranslation();
   const [autoswitch, setAutoswitch] = useState(true);
@@ -695,21 +703,42 @@ function Settings({
         </button>
       </div>
 
+      <div className="overflow-hidden rounded-lg border border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-900/60">
+        <div className="divide-y divide-gray-200 px-3 py-1 dark:divide-gray-800">
+          {hotkeyActions.map(({ action, label }) => (
+            <HotkeyRow
+              key={action}
+              action={action}
+              actionLabel={label}
+              binding={hotkeys.find((h) => h.action === action)}
+              recording={recordingAction === action}
+              onRecord={(a) => setRecordingAction(recordingAction === a ? null : a)}
+              changeLabel={t("hotkeys.change")}
+              cancelLabel={t("hotkeys.cancel")}
+              pressKeyLabel={t("hotkeys.press_key")}
+              layoutMap={layoutMap}
+            />
+          ))}
+        </div>
+      </div>
+
       <div className="divide-y divide-gray-200 dark:divide-gray-800/50">
-        {hotkeyActions.map(({ action, label }) => (
-          <HotkeyRow
-            key={action}
-            action={action}
-            actionLabel={label}
-            binding={hotkeys.find((h) => h.action === action)}
-            recording={recordingAction === action}
-            onRecord={(a) => setRecordingAction(recordingAction === a ? null : a)}
-            changeLabel={t("hotkeys.change")}
-            cancelLabel={t("hotkeys.cancel")}
-            pressKeyLabel={t("hotkeys.press_key")}
-            layoutMap={layoutMap}
-          />
-        ))}
+        <ToggleRow
+          label={t("hotkeys.focused_only")}
+          description={t("hotkeys.focused_only_desc")}
+          enabled={hotkeysFocusedOnly}
+          onToggle={() => onToggleHotkeysFocusedOnly(!hotkeysFocusedOnly)}
+          onLabel={t("settings.on")}
+          offLabel={t("settings.off")}
+        />
+        <ToggleRow
+          label={t("hotkeys.consume")}
+          description={t("hotkeys.consume_desc")}
+          enabled={hotkeysConsume}
+          onToggle={() => onToggleHotkeysConsume(!hotkeysConsume)}
+          onLabel={t("settings.on")}
+          offLabel={t("settings.off")}
+        />
       </div>
 
       <div className="mt-6 flex flex-col items-center gap-1 text-[11px] text-gray-400 dark:text-gray-600">

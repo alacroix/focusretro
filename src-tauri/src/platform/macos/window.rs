@@ -272,21 +272,24 @@ fn main_window_title_ax(pid: i32) -> Option<String> {
     }
 }
 
-/// Returns the CGWindowID of the frontmost window, or 0 if it cannot be determined.
-/// Used to sync the "current" account from the actual focused Dofus window.
-pub fn get_foreground_window_id() -> u64 {
+/// Returns `(window_id, pid)` of the frontmost application.
+/// `window_id` is the CGWindowID of the frontmost window (0 if not a game window or not found).
+/// `pid` is the frontmost application's process ID (0 if unavailable).
+/// The pid is always returned even when no window_id can be resolved, so callers can
+/// check `pid == std::process::id()` to detect if FocusRetro itself is in the foreground.
+pub fn get_foreground_info() -> (u64, u32) {
     let pid = match frontmost_application_pid() {
         Some(p) => p,
-        None => return 0,
+        None => return (0, 0),
     };
     let title = match main_window_title_ax(pid) {
         Some(t) => t,
-        None => return 0,
+        None => return (0, pid as u32),
     };
     let options = kCGWindowListOptionOnScreenOnly | kCGWindowListExcludeDesktopElements;
     let window_list = unsafe { CGWindowListCopyWindowInfo(options, kCGNullWindowID) };
     if window_list.is_null() {
-        return 0;
+        return (0, pid as u32);
     }
     let window_list_ptr = window_list as *const c_void;
     let count = unsafe { CFArrayGetCount(window_list_ptr) };
@@ -304,7 +307,7 @@ pub fn get_foreground_window_id() -> u64 {
         }
     }
     unsafe { CFRelease(window_list_ptr) };
-    result
+    (result, pid as u32)
 }
 
 /// Set a window's position and size via Accessibility API. (left, bottom) is bottom-left in screen coords.

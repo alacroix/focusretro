@@ -19,6 +19,8 @@ pub struct InitialState {
     pub update_consent: Option<bool>,
     pub taskbar_ungroup: bool,
     pub icon_style: String,
+    pub hotkeys_focused_only: bool,
+    pub hotkeys_consume: bool,
 }
 
 #[tauri::command]
@@ -46,6 +48,8 @@ pub fn get_initial_state(state: tauri::State<'_, Arc<AppState>>) -> InitialState
         update_consent: state.get_update_consent(),
         taskbar_ungroup,
         icon_style: state.get_icon_style(),
+        hotkeys_focused_only: state.is_hotkeys_focused_only(),
+        hotkeys_consume: state.is_hotkeys_consume(),
     }
 }
 
@@ -418,6 +422,16 @@ pub fn set_hotkey(
 pub fn reset_hotkeys(state: tauri::State<'_, Arc<AppState>>) -> Vec<HotkeyBinding> {
     state.reset_hotkeys();
     state.get_hotkeys()
+}
+
+#[tauri::command]
+pub fn set_hotkeys_focused_only(val: bool, state: tauri::State<'_, Arc<AppState>>) {
+    state.set_hotkeys_focused_only(val);
+}
+
+#[tauri::command]
+pub fn set_hotkeys_consume(val: bool, state: tauri::State<'_, Arc<AppState>>) {
+    state.set_hotkeys_consume(val);
 }
 
 #[tauri::command]

@@ -12,7 +12,7 @@ type CGEventRef = *mut c_void;
 
 const K_CG_SESSION_EVENT_TAP: u32 = 1;
 const K_CG_HEAD_INSERT_EVENT_TAP: u32 = 0;
-const K_CG_EVENT_TAP_OPTION_LISTEN_ONLY: u32 = 1;
+const K_CG_EVENT_TAP_OPTION_DEFAULT: u32 = 0; // active tap: allows event consumption
 const K_CG_EVENT_MOUSE_MOVED: u64 = 5;
 const K_CG_EVENT_KEY_DOWN: u64 = 10;
 const K_CG_EVENT_KEY_UP: u64 = 11;
@@ -305,9 +305,19 @@ extern "C" fn hotkey_callback(
             }
 
             // Sync foreground window for cycle/principal actions (not radial — window server call is slow)
-            let fg_id = platform::get_foreground_window_id();
+            let (fg_id, fg_pid) = platform::get_foreground_info();
             if fg_id != 0 {
                 ctx.state.sync_current_from_window_id(fg_id);
+            }
+
+            // Focus gate: if enabled, only fire when Dofus or FocusRetro is the active app.
+            if ctx.state.is_hotkeys_focused_only() {
+                let ids = ctx.state.get_account_window_ids();
+                let is_dofus = fg_id != 0 && ids.contains(&fg_id);
+                let is_app = fg_pid != 0 && fg_pid == std::process::id();
+                if !is_dofus && !is_app {
+                    break; // no match — pass event through, no consume
+                }
             }
 
             let win = match binding.action.as_str() {
@@ -325,6 +335,9 @@ extern "C" fn hotkey_callback(
                 std::thread::spawn(move || {
                     let _ = handle.emit("focus-changed", &name);
                 });
+            }
+            if ctx.state.is_hotkeys_consume() {
+                return std::ptr::null_mut(); // consume: Dofus does not receive this key
             }
             break;
         }
@@ -360,7 +373,7 @@ pub fn start_hotkey_listener(handle: AppHandle, state: Arc<AppState>) {
             let tap = CGEventTapCreate(
                 K_CG_SESSION_EVENT_TAP,
                 K_CG_HEAD_INSERT_EVENT_TAP,
-                K_CG_EVENT_TAP_OPTION_LISTEN_ONLY,
+                K_CG_EVENT_TAP_OPTION_DEFAULT,
                 events_mask,
                 hotkey_callback,
                 user_info,

@@ -91,6 +91,8 @@ pub fn run() {
             commands::get_hotkeys,
             commands::set_hotkey,
             commands::reset_hotkeys,
+            commands::set_hotkeys_focused_only,
+            commands::set_hotkeys_consume,
             commands::get_language,
             commands::set_language,
             commands::get_traces,

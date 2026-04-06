@@ -63,7 +63,7 @@ fn sync_focus_from_foreground(handle: &AppHandle, state: &Arc<AppState>) {
     if state.radial_open.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    let fg_id = crate::platform::get_foreground_window_id();
+    let fg_id = crate::platform::get_foreground_info().0;
     if fg_id == 0 {
         return;
     }

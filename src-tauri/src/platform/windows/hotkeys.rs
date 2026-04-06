@@ -122,11 +122,12 @@ fn read_modifiers() -> (bool, bool, bool, bool) {
     }
 }
 
-fn fire_action(action: &str, c: &HotkeyContext) {
+/// Returns true if the event should be consumed (not forwarded to other apps).
+fn fire_action(action: &str, c: &HotkeyContext) -> bool {
     if action == "radial" {
         use std::sync::atomic::Ordering;
         if c.state.radial_open.load(Ordering::Acquire) {
-            return; // guard against key-repeat
+            return false; // guard against key-repeat, don't consume
         }
         c.state.radial_open.store(true, Ordering::Release);
         c.last_hover_seg.store(-1, Ordering::Relaxed);
@@ -175,21 +176,31 @@ fn fire_action(action: &str, c: &HotkeyContext) {
                 ));
             }
         });
-        return;
+        return false;
     }
 
     // Sync current index from the actual foreground window before cycling,
     // so next/prev always starts from wherever focus currently is.
-    let fg_id = platform::get_foreground_window_id();
+    let (fg_id, fg_pid) = platform::get_foreground_info();
     if fg_id != 0 {
         c.state.sync_current_from_window_id(fg_id);
+    }
+
+    // Focus gate: if enabled, only fire when Dofus or FocusRetro is the active app.
+    if c.state.is_hotkeys_focused_only() {
+        let ids = c.state.get_account_window_ids();
+        let is_dofus = fg_id != 0 && ids.contains(&fg_id);
+        let is_app = fg_pid != 0 && fg_pid == std::process::id();
+        if !is_dofus && !is_app {
+            return false; // skip, don't consume
+        }
     }
 
     let win = match action {
         "next" => c.state.cycle_next(),
         "prev" => c.state.cycle_prev(),
         "principal" => c.state.get_principal(),
-        _ => return,
+        _ => return false,
     };
     if let Some(win) = win {
         let wm = platform::create_window_manager();
@@ -200,6 +211,7 @@ fn fire_action(action: &str, c: &HotkeyContext) {
             let _ = handle.emit("focus-changed", &name);
         });
     }
+    c.state.is_hotkeys_consume()
 }
 
 /// Called from a spawned thread to hide the radial wheel and focus the selected account.
@@ -309,18 +321,25 @@ unsafe extern "system" fn hotkey_callback(ncode: i32, wparam: WPARAM, lparam: LP
     let vk = kb.vkCode as u16;
     let (shift, ctrl, alt, cmd) = read_modifiers();
 
-    HOTKEY_CTX.with(|ctx| {
+    let should_consume = HOTKEY_CTX.with(|ctx| -> bool {
         if let Some(ref c) = *ctx.borrow() {
             let hotkeys = c.state.get_hotkeys();
             for binding in &hotkeys {
                 if matches_keyboard_binding(vk, shift, ctrl, alt, cmd, binding) {
-                    fire_action(&binding.action.clone(), c);
+                    if fire_action(&binding.action.clone(), c) {
+                        return true;
+                    }
                 }
             }
         }
+        false
     });
 
-    CallNextHookEx(None, ncode, wparam, lparam)
+    if should_consume {
+        LRESULT(1)
+    } else {
+        CallNextHookEx(None, ncode, wparam, lparam)
+    }
 }
 
 unsafe extern "system" fn mouse_callback(ncode: i32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
@@ -425,18 +444,25 @@ unsafe extern "system" fn mouse_callback(ncode: i32, wparam: WPARAM, lparam: LPA
 
     let (shift, ctrl, alt, cmd) = read_modifiers();
 
-    HOTKEY_CTX.with(|ctx| {
+    let should_consume = HOTKEY_CTX.with(|ctx| -> bool {
         if let Some(ref c) = *ctx.borrow() {
             let hotkeys = c.state.get_hotkeys();
             for binding in &hotkeys {
                 if matches_mouse_binding(button, shift, ctrl, alt, cmd, binding) {
-                    fire_action(&binding.action.clone(), c);
+                    if fire_action(&binding.action.clone(), c) {
+                        return true;
+                    }
                 }
             }
         }
+        false
     });
 
-    CallNextHookEx(None, ncode, wparam, lparam)
+    if should_consume {
+        LRESULT(1)
+    } else {
+        CallNextHookEx(None, ncode, wparam, lparam)
+    }
 }
 
 pub fn start_hotkey_listener(handle: AppHandle, state: Arc<AppState>) {

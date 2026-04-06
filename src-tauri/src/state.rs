@@ -150,6 +150,10 @@ pub struct Preferences {
     pub taskbar_ungroup_enabled: bool,
     #[serde(default = "default_icon_style")]
     pub icon_style: String,
+    #[serde(default = "default_true")]
+    pub hotkeys_focused_only: bool,
+    #[serde(default = "default_true")]
+    pub hotkeys_consume: bool,
 }
 
 fn default_true() -> bool {
@@ -189,6 +193,8 @@ impl Default for Preferences {
             taskbar_ungroup_enabled: true,
             close_behavior_prompted: false,
             icon_style: default_icon_style(),
+            hotkeys_focused_only: true,
+            hotkeys_consume: true,
         }
     }
 }
@@ -282,6 +288,8 @@ pub struct AppState {
     #[cfg(target_os = "windows")]
     pub taskbar_icon_handles: Mutex<std::collections::HashMap<isize, isize>>,
     pub icon_style: Mutex<String>,
+    pub hotkeys_focused_only: AtomicBool,
+    pub hotkeys_consume: AtomicBool,
     /// Incremented whenever the account list or order changes.
     #[cfg(target_os = "windows")]
     pub taskbar_order_version: AtomicU64,
@@ -339,6 +347,8 @@ impl AppState {
             close_behavior_prompted: AtomicBool::new(prefs.close_behavior_prompted),
             last_tray_snapshot: Mutex::new(None),
             icon_style: Mutex::new(prefs.icon_style),
+            hotkeys_focused_only: AtomicBool::new(prefs.hotkeys_focused_only),
+            hotkeys_consume: AtomicBool::new(prefs.hotkeys_consume),
             #[cfg(target_os = "windows")]
             taskbar_ungroup_enabled: AtomicBool::new(prefs.taskbar_ungroup_enabled),
             #[cfg(target_os = "windows")]
@@ -371,6 +381,8 @@ impl AppState {
             #[cfg(target_os = "windows")]
             taskbar_ungroup_enabled: self.taskbar_ungroup_enabled.load(Ordering::Relaxed),
             icon_style: self.icon_style.lock().clone(),
+            hotkeys_focused_only: self.hotkeys_focused_only.load(Ordering::Relaxed),
+            hotkeys_consume: self.hotkeys_consume.load(Ordering::Relaxed),
         }
     }
 
@@ -393,6 +405,30 @@ impl AppState {
     pub fn set_autoswitch(&self, enabled: bool) {
         self.autoswitch_enabled.store(enabled, Ordering::Relaxed);
         self.save();
+    }
+
+    pub fn is_hotkeys_focused_only(&self) -> bool {
+        self.hotkeys_focused_only.load(Ordering::Relaxed)
+    }
+
+    pub fn set_hotkeys_focused_only(&self, val: bool) {
+        self.hotkeys_focused_only.store(val, Ordering::Relaxed);
+        self.save();
+    }
+
+    pub fn is_hotkeys_consume(&self) -> bool {
+        self.hotkeys_consume.load(Ordering::Relaxed)
+    }
+
+    pub fn set_hotkeys_consume(&self, val: bool) {
+        self.hotkeys_consume.store(val, Ordering::Relaxed);
+        self.save();
+    }
+
+    /// Returns the window IDs of all currently tracked game windows.
+    /// Used by hotkey callbacks to check if the foreground window is a Dofus window.
+    pub fn get_account_window_ids(&self) -> Vec<u64> {
+        self.accounts.lock().iter().map(|w| w.window_id).collect()
     }
 
     pub fn is_group_invite_enabled(&self) -> bool {
@@ -1161,6 +1197,38 @@ mod tests {
         assert_eq!(messages.len(), 401);
         // oldest 100 were dropped; first remaining is msg 100
         assert_eq!(messages[0].message, "msg 100");
+    }
+
+    #[test]
+    fn preferences_defaults_hotkeys_focused_only_to_true() {
+        let json = r#"{"autoswitch_enabled": true}"#;
+        let prefs: Preferences = serde_json::from_str(json).unwrap();
+        assert!(
+            prefs.hotkeys_focused_only,
+            "hotkeys_focused_only should default to true"
+        );
+        assert!(
+            prefs.hotkeys_consume,
+            "hotkeys_consume should default to true"
+        );
+    }
+
+    #[test]
+    fn preferences_respects_explicit_false() {
+        let json = r#"{"hotkeys_focused_only": false, "hotkeys_consume": false}"#;
+        let prefs: Preferences = serde_json::from_str(json).unwrap();
+        assert!(!prefs.hotkeys_focused_only);
+        assert!(!prefs.hotkeys_consume);
+    }
+
+    #[test]
+    fn get_account_window_ids_returns_all_ids() {
+        let state = make_state();
+        state.update_accounts(vec![make_window("Alice", 10), make_window("Bob", 20)]);
+        let ids = state.get_account_window_ids();
+        assert_eq!(ids.len(), 2);
+        assert!(ids.contains(&10));
+        assert!(ids.contains(&20));
     }
 
     // --- update_accounts ---

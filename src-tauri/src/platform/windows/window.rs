@@ -18,8 +18,17 @@ use windows::Win32::UI::WindowsAndMessaging::{
     ShowWindow, MSG, PM_NOREMOVE, SWP_NOACTIVATE, SWP_NOZORDER, SW_MAXIMIZE, SW_RESTORE,
 };
 
-pub fn get_foreground_window_id() -> u64 {
-    unsafe { GetForegroundWindow() }.0 as usize as u64
+/// Returns `(window_id, pid)` of the foreground window.
+/// `window_id` is the HWND cast to u64 (0 if no foreground window).
+/// `pid` is the owning process ID (0 if unavailable).
+pub fn get_foreground_info() -> (u64, u32) {
+    let hwnd = unsafe { GetForegroundWindow() };
+    let window_id = hwnd.0 as usize as u64;
+    let mut pid: u32 = 0;
+    unsafe {
+        GetWindowThreadProcessId(hwnd, Some(&mut pid));
+    }
+    (window_id, pid)
 }
 
 /// RAII guard for AttachThreadInput.

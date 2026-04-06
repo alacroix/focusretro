@@ -25,6 +25,8 @@ import {
   applyWindowIcon,
   getAutoswitchState,
   setTrayIcon,
+  setHotkeysFocusedOnly as setHotkeysFocusedOnlyCmd,
+  setHotkeysConsume as setHotkeysConsumeCmd,
 } from "./lib/commands";
 import { renderAccountIcon } from "./lib/taskbarIcon";
 import { renderTrayIcon } from "./lib/trayIcon";
@@ -66,6 +68,8 @@ function App() {
   const [closeOs, setCloseOs] = useState<string>("windows");
   const [taskbarUngroup, setTaskbarUngroup] = useState(true);
   const [iconStyle, setIconStyle] = useState<"classic" | "portrait">("classic");
+  const [hotkeysFocusedOnly, setHotkeysFocusedOnly] = useState(true);
+  const [hotkeysConsume, setHotkeysConsume] = useState(true);
   const taskbarIconCache = useRef<Map<number, string>>(new Map());
   const isWindows = navigator.userAgent.includes("Windows NT");
 
@@ -104,6 +108,8 @@ function App() {
         setPmEnabled(s.pm_enabled);
         if (isWindows) setTaskbarUngroup(s.taskbar_ungroup);
         if (isWindows) setIconStyle((s.icon_style as "classic" | "portrait") ?? "classic");
+        setHotkeysFocusedOnly(s.hotkeys_focused_only ?? true);
+        setHotkeysConsume(s.hotkeys_consume ?? true);
         setThemeState(s.theme);
         applyThemeClass(s.theme);
         if (s.language && s.language !== i18n.language) {
@@ -539,6 +545,16 @@ function App() {
             iconStyle={iconStyle}
             onIconStyleChange={setIconStyle}
             onHotkeysChange={setHotkeys}
+            hotkeysFocusedOnly={hotkeysFocusedOnly}
+            onToggleHotkeysFocusedOnly={async (v) => {
+              setHotkeysFocusedOnly(v);
+              await setHotkeysFocusedOnlyCmd(v);
+            }}
+            hotkeysConsume={hotkeysConsume}
+            onToggleHotkeysConsume={async (v) => {
+              setHotkeysConsume(v);
+              await setHotkeysConsumeCmd(v);
+            }}
           />
         )}
         {tab === "debug" && <DebugPanel />}

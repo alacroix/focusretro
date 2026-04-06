@@ -55,19 +55,27 @@ pub trait NotificationListener: Send + Sync {
     fn stop(&self);
 }
 
-pub fn get_foreground_window_id() -> u64 {
+/// Returns `(window_id, pid)` of the foreground application.
+/// `window_id` is the platform window handle (CGWindowID on macOS, HWND on Windows).
+/// `pid` is the process ID of the foreground app; 0 if unavailable.
+pub fn get_foreground_info() -> (u64, u32) {
     #[cfg(target_os = "windows")]
     {
-        windows::window::get_foreground_window_id()
+        windows::window::get_foreground_info()
     }
     #[cfg(target_os = "macos")]
     {
-        macos::window::get_foreground_window_id()
+        macos::window::get_foreground_info()
     }
     #[cfg(not(any(target_os = "windows", target_os = "macos")))]
     {
-        0
+        (0, 0)
     }
+}
+
+/// Convenience wrapper for callers that only need the window ID.
+pub fn get_foreground_window_id() -> u64 {
+    get_foreground_info().0
 }
 
 pub fn create_window_manager() -> Box<dyn WindowManager> {

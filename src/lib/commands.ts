@@ -44,6 +44,8 @@ export interface InitialState {
   update_consent: boolean | null;
   taskbar_ungroup: boolean;
   icon_style: string;
+  hotkeys_focused_only: boolean;
+  hotkeys_consume: boolean;
 }
 
 export function getInitialState(): Promise<InitialState> {
@@ -210,6 +212,14 @@ export function setHotkey(
 
 export function resetHotkeys(): Promise<HotkeyBinding[]> {
   return invoke("reset_hotkeys");
+}
+
+export function setHotkeysFocusedOnly(val: boolean): Promise<void> {
+  return invoke("set_hotkeys_focused_only", { val });
+}
+
+export function setHotkeysConsume(val: boolean): Promise<void> {
+  return invoke("set_hotkeys_consume", { val });
 }
 
 export function getLanguage(): Promise<string> {
