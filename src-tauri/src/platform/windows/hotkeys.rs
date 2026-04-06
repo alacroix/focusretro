@@ -29,35 +29,44 @@ thread_local! {
         const { std::cell::RefCell::new(None) };
 }
 
+/// Scan codes for letter keys (Key*).
+/// These are PS/2 set-1 scan codes — always physical-position-based,
+/// independent of the active keyboard layout (AZERTY, QWERTZ, etc.).
+fn js_code_to_scan(code: &str) -> Option<u32> {
+    match code {
+        "KeyQ" => Some(0x10),
+        "KeyW" => Some(0x11),
+        "KeyE" => Some(0x12),
+        "KeyR" => Some(0x13),
+        "KeyT" => Some(0x14),
+        "KeyY" => Some(0x15),
+        "KeyU" => Some(0x16),
+        "KeyI" => Some(0x17),
+        "KeyO" => Some(0x18),
+        "KeyP" => Some(0x19),
+        "KeyA" => Some(0x1E),
+        "KeyS" => Some(0x1F),
+        "KeyD" => Some(0x20),
+        "KeyF" => Some(0x21),
+        "KeyG" => Some(0x22),
+        "KeyH" => Some(0x23),
+        "KeyJ" => Some(0x24),
+        "KeyK" => Some(0x25),
+        "KeyL" => Some(0x26),
+        "KeyZ" => Some(0x2C),
+        "KeyX" => Some(0x2D),
+        "KeyC" => Some(0x2E),
+        "KeyV" => Some(0x2F),
+        "KeyB" => Some(0x30),
+        "KeyN" => Some(0x31),
+        "KeyM" => Some(0x32),
+        _ => None,
+    }
+}
+
 fn js_code_to_vk(code: &str) -> Option<u16> {
     match code {
-        // Letters A–Z → virtual keycodes 0x41–0x5A
-        "KeyA" => Some(0x41),
-        "KeyB" => Some(0x42),
-        "KeyC" => Some(0x43),
-        "KeyD" => Some(0x44),
-        "KeyE" => Some(0x45),
-        "KeyF" => Some(0x46),
-        "KeyG" => Some(0x47),
-        "KeyH" => Some(0x48),
-        "KeyI" => Some(0x49),
-        "KeyJ" => Some(0x4A),
-        "KeyK" => Some(0x4B),
-        "KeyL" => Some(0x4C),
-        "KeyM" => Some(0x4D),
-        "KeyN" => Some(0x4E),
-        "KeyO" => Some(0x4F),
-        "KeyP" => Some(0x50),
-        "KeyQ" => Some(0x51),
-        "KeyR" => Some(0x52),
-        "KeyS" => Some(0x53),
-        "KeyT" => Some(0x54),
-        "KeyU" => Some(0x55),
-        "KeyV" => Some(0x56),
-        "KeyW" => Some(0x57),
-        "KeyX" => Some(0x58),
-        "KeyY" => Some(0x59),
-        "KeyZ" => Some(0x5A),
+        // Letters A-Z are handled via scan codes (js_code_to_scan) — not here.
         // Digits 0–9 → 0x30–0x39
         "Digit0" => Some(0x30),
         "Digit1" => Some(0x31),
@@ -235,17 +244,22 @@ fn close_radial(
 
 fn matches_keyboard_binding(
     vk: u16,
+    scan: u32,
     shift: bool,
     ctrl: bool,
     alt: bool,
     cmd: bool,
     binding: &HotkeyBinding,
 ) -> bool {
-    let expected = match js_code_to_vk(&binding.key) {
-        Some(k) => k,
-        None => return false,
+    // Letter keys (Key*): compare by physical scan code so the binding fires for
+    // the same physical key regardless of the active layout (AZERTY, QWERTZ, …).
+    // WH_KEYBOARD_LL vkCode for letters is layout-dependent, so it cannot be used.
+    let key_matches = if binding.key.starts_with("Key") {
+        js_code_to_scan(&binding.key).map_or(false, |s| s == scan)
+    } else {
+        js_code_to_vk(&binding.key).map_or(false, |k| k == vk)
     };
-    vk == expected
+    key_matches
         && shift == binding.shift
         && ctrl == binding.ctrl
         && alt == binding.alt
@@ -278,6 +292,7 @@ unsafe extern "system" fn hotkey_callback(ncode: i32, wparam: WPARAM, lparam: LP
     if msg_id == WM_KEYUP || msg_id == WM_SYSKEYUP {
         let kb = &*(lparam.0 as *const KBDLLHOOKSTRUCT);
         let vk = kb.vkCode as u16;
+        let scan = kb.scanCode;
         HOTKEY_CTX.with(|ctx| {
             if let Some(ref c) = *ctx.borrow() {
                 use std::sync::atomic::Ordering;
@@ -285,24 +300,27 @@ unsafe extern "system" fn hotkey_callback(ncode: i32, wparam: WPARAM, lparam: LP
                     let hotkeys = c.state.get_hotkeys();
                     for binding in &hotkeys {
                         if binding.action == "radial" && !binding.key.is_empty() {
-                            if let Some(expected) = js_code_to_vk(&binding.key) {
-                                if vk == expected {
-                                    c.state.radial_open.store(false, Ordering::Release);
+                            let key_match = if binding.key.starts_with("Key") {
+                                js_code_to_scan(&binding.key).map_or(false, |s| s == scan)
+                            } else {
+                                js_code_to_vk(&binding.key).map_or(false, |k| k == vk)
+                            };
+                            if key_match {
+                                c.state.radial_open.store(false, Ordering::Release);
 
-                                    // Capture physical cursor at key-release moment
-                                    let mut pt = POINT { x: 0, y: 0 };
-                                    let _ = GetCursorPos(&mut pt);
-                                    let phys_x = pt.x as f64;
-                                    let phys_y = pt.y as f64;
+                                // Capture physical cursor at key-release moment
+                                let mut pt = POINT { x: 0, y: 0 };
+                                let _ = GetCursorPos(&mut pt);
+                                let phys_x = pt.x as f64;
+                                let phys_y = pt.y as f64;
 
-                                    let h = c.handle.clone();
-                                    let state_ref = c.state.clone();
-                                    let scale_arc = c.scale.clone();
+                                let h = c.handle.clone();
+                                let state_ref = c.state.clone();
+                                let scale_arc = c.scale.clone();
 
-                                    std::thread::spawn(move || {
-                                        close_radial(h, state_ref, scale_arc, phys_x, phys_y);
-                                    });
-                                }
+                                std::thread::spawn(move || {
+                                    close_radial(h, state_ref, scale_arc, phys_x, phys_y);
+                                });
                             }
                         }
                     }
@@ -319,13 +337,14 @@ unsafe extern "system" fn hotkey_callback(ncode: i32, wparam: WPARAM, lparam: LP
 
     let kb = &*(lparam.0 as *const KBDLLHOOKSTRUCT);
     let vk = kb.vkCode as u16;
+    let scan = kb.scanCode;
     let (shift, ctrl, alt, cmd) = read_modifiers();
 
     let should_consume = HOTKEY_CTX.with(|ctx| -> bool {
         if let Some(ref c) = *ctx.borrow() {
             let hotkeys = c.state.get_hotkeys();
             for binding in &hotkeys {
-                if matches_keyboard_binding(vk, shift, ctrl, alt, cmd, binding)
+                if matches_keyboard_binding(vk, scan, shift, ctrl, alt, cmd, binding)
                     && fire_action(&binding.action.clone(), c)
                 {
                     return true;
@@ -540,6 +559,7 @@ mod tests {
     fn exact_match_no_modifiers() {
         assert!(matches_keyboard_binding(
             VK_F1,
+            0,
             false,
             false,
             false,
@@ -552,6 +572,7 @@ mod tests {
     fn wrong_key_returns_false() {
         assert!(!matches_keyboard_binding(
             VK_F2,
+            0,
             false,
             false,
             false,
@@ -564,6 +585,7 @@ mod tests {
     fn unknown_key_string_returns_false() {
         assert!(!matches_keyboard_binding(
             VK_F1,
+            0,
             false,
             false,
             false,
@@ -576,6 +598,7 @@ mod tests {
     fn modifier_mismatch_shift_returns_false() {
         assert!(!matches_keyboard_binding(
             VK_F1,
+            0,
             true,
             false,
             false,
@@ -588,6 +611,7 @@ mod tests {
     fn modifier_match_shift_returns_true() {
         assert!(matches_keyboard_binding(
             VK_F1,
+            0,
             true,
             false,
             false,
@@ -600,6 +624,7 @@ mod tests {
     fn modifier_match_ctrl_returns_true() {
         assert!(matches_keyboard_binding(
             VK_F2,
+            0,
             false,
             true,
             false,
@@ -612,6 +637,7 @@ mod tests {
     fn modifier_match_alt_returns_true() {
         assert!(matches_keyboard_binding(
             VK_F3,
+            0,
             false,
             false,
             true,
@@ -624,6 +650,7 @@ mod tests {
     fn modifier_mismatch_ctrl_returns_false() {
         assert!(!matches_keyboard_binding(
             VK_F1,
+            0,
             false,
             true,
             false,
@@ -636,6 +663,7 @@ mod tests {
     fn modifier_mismatch_alt_returns_false() {
         assert!(!matches_keyboard_binding(
             VK_F1,
+            0,
             false,
             false,
             true,
@@ -648,6 +676,7 @@ mod tests {
     fn multiple_modifiers_must_all_match() {
         assert!(matches_keyboard_binding(
             VK_F1,
+            0,
             true,
             true,
             false,
@@ -656,6 +685,7 @@ mod tests {
         ));
         assert!(!matches_keyboard_binding(
             VK_F1,
+            0,
             true,
             false,
             false,
@@ -688,11 +718,49 @@ mod tests {
     fn numpad0_binding_matches() {
         assert!(matches_keyboard_binding(
             VK_NUMPAD0,
+            0,
             false,
             false,
             false,
             false,
             &binding("Numpad0", false, false, false, false)
+        ));
+    }
+
+    // --- Letter keys use scan codes (layout-independent) ---
+    // AZERTY simulation: "KeyZ" is the physical QWERTY-Z position (scan 0x2C),
+    // which is the "W" key on AZERTY. VK_W=0x57 is what Windows sends for AZERTY-W.
+    const SCAN_KEY_Z: u32 = 0x2C; // physical QWERTY-Z / AZERTY-W position
+    const SCAN_KEY_W: u32 = 0x11; // physical QWERTY-W / AZERTY-Z position
+    const VK_W: u16 = 0x57;
+    const VK_Z: u16 = 0x5A;
+
+    #[test]
+    fn letter_key_matches_by_scan_code_not_vk() {
+        // Binding recorded as "KeyZ" (user pressed AZERTY-W, event.code="KeyZ").
+        // Hook fires with scan=0x2C (physical QWERTY-Z) and vkCode=VK_W (0x57, AZERTY layout).
+        assert!(matches_keyboard_binding(
+            VK_W,
+            SCAN_KEY_Z,
+            false,
+            false,
+            false,
+            false,
+            &binding("KeyZ", false, false, false, false)
+        ));
+    }
+
+    #[test]
+    fn letter_key_wrong_scan_no_match() {
+        // AZERTY-Z has scan 0x11 (QWERTY-W position) — must NOT match "KeyZ" binding.
+        assert!(!matches_keyboard_binding(
+            VK_Z,
+            SCAN_KEY_W,
+            false,
+            false,
+            false,
+            false,
+            &binding("KeyZ", false, false, false, false)
         ));
     }
 
