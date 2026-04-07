@@ -10,7 +10,7 @@ use windows::Win32::Graphics::Gdi::{
 use windows::Win32::System::Threading::{AttachThreadInput, GetCurrentThreadId};
 use windows::Win32::UI::Input::KeyboardAndMouse::{
     SendInput, SetActiveWindow, SetFocus, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT,
-    KEYBD_EVENT_FLAGS, KEYEVENTF_KEYUP, VK_RETURN,
+    KEYBD_EVENT_FLAGS, KEYEVENTF_KEYUP, VK_MENU, VK_RETURN,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     BringWindowToTop, EnumWindows, GetForegroundWindow, GetWindowTextW, GetWindowThreadProcessId,
@@ -172,6 +172,46 @@ impl WindowManager for WinWindowManager {
             //   cur → fg_tid  : makes SetForegroundWindow bypass focus-stealing prevention
             //   cur → target  : makes SetFocus effective (SetFocus only works within the
             //                   calling thread's input queue)
+            // Reset the foreground lock timer by simulating a neutral Alt keypress.
+            // Alt is associated with menu activation, which Windows treats as a
+            // legitimate focus operation and resets the lock timer. This complements
+            // AttachThreadInput: the Alt press resets the timer, AttachThreadInput
+            // does the actual focus transfer.
+            let alt_inputs = [
+                INPUT {
+                    r#type: INPUT_KEYBOARD,
+                    Anonymous: INPUT_0 {
+                        ki: KEYBDINPUT {
+                            wVk: VK_MENU,
+                            wScan: 0x38,
+                            dwFlags: KEYBD_EVENT_FLAGS(0),
+                            time: 0,
+                            dwExtraInfo: 0,
+                        },
+                    },
+                },
+                INPUT {
+                    r#type: INPUT_KEYBOARD,
+                    Anonymous: INPUT_0 {
+                        ki: KEYBDINPUT {
+                            wVk: VK_MENU,
+                            wScan: 0x38,
+                            dwFlags: KEYEVENTF_KEYUP,
+                            time: 0,
+                            dwExtraInfo: 0,
+                        },
+                    },
+                },
+            ];
+            let sent = SendInput(&alt_inputs, mem::size_of::<INPUT>() as i32);
+            if sent < alt_inputs.len() as u32 {
+                log::warn!(
+                    "[WinWindow] Alt SendInput: sent {}/{} — UIPI may be blocking",
+                    sent,
+                    alt_inputs.len()
+                );
+            }
+
             let cur_tid = GetCurrentThreadId();
             let fg_tid = GetWindowThreadProcessId(GetForegroundWindow(), None);
             let target_tid = GetWindowThreadProcessId(hwnd, None);

@@ -255,9 +255,9 @@ fn matches_keyboard_binding(
     // the same physical key regardless of the active layout (AZERTY, QWERTZ, …).
     // WH_KEYBOARD_LL vkCode for letters is layout-dependent, so it cannot be used.
     let key_matches = if binding.key.starts_with("Key") {
-        js_code_to_scan(&binding.key).map_or(false, |s| s == scan)
+        js_code_to_scan(&binding.key) == Some(scan)
     } else {
-        js_code_to_vk(&binding.key).map_or(false, |k| k == vk)
+        js_code_to_vk(&binding.key) == Some(vk)
     };
     key_matches
         && shift == binding.shift
@@ -301,9 +301,9 @@ unsafe extern "system" fn hotkey_callback(ncode: i32, wparam: WPARAM, lparam: LP
                     for binding in &hotkeys {
                         if binding.action == "radial" && !binding.key.is_empty() {
                             let key_match = if binding.key.starts_with("Key") {
-                                js_code_to_scan(&binding.key).map_or(false, |s| s == scan)
+                                js_code_to_scan(&binding.key) == Some(scan)
                             } else {
-                                js_code_to_vk(&binding.key).map_or(false, |k| k == vk)
+                                js_code_to_vk(&binding.key) == Some(vk)
                             };
                             if key_match {
                                 c.state.radial_open.store(false, Ordering::Release);
