@@ -166,7 +166,8 @@ interface Props {
 
 function AccountList({ accounts, focusedName, onRefresh, onUpdate, onFocused }: Props) {
   const { t } = useTranslation();
-  const active = accounts.filter((a) => !a.is_skipped);
+  const active = accounts.filter((a) => !a.is_skipped && !a.is_connection_state);
+  const connecting = accounts.filter((a) => a.is_connection_state);
   const skipped = accounts.filter((a) => a.is_skipped);
   const [editingName, setEditingName] = useState<string | null>(null);
   const [dragState, setDragState] = useState<{
@@ -418,18 +419,20 @@ function AccountList({ accounts, focusedName, onRefresh, onUpdate, onFocused }: 
       </div>
 
       {/* Layout toolbar */}
-      {active.length >= 2 && (
+      {active.length + connecting.length >= 2 && (
         <div className="mb-2 flex items-center gap-1">
-          {LAYOUTS.filter((l) => l.show(active.length)).map(({ id, i18nKey }) => (
-            <button
-              key={id}
-              onClick={() => applyLayout(id)}
-              className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-gray-400 transition-colors hover:bg-gray-100 hover:text-brand-600 dark:text-gray-500 dark:hover:bg-gray-800 dark:hover:text-brand-400"
-              title={t(i18nKey)}
-            >
-              <LayoutIcon type={id} />
-            </button>
-          ))}
+          {LAYOUTS.filter((l) => l.show(active.length + connecting.length)).map(
+            ({ id, i18nKey }) => (
+              <button
+                key={id}
+                onClick={() => applyLayout(id)}
+                className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-gray-400 transition-colors hover:bg-gray-100 hover:text-brand-600 dark:text-gray-500 dark:hover:bg-gray-800 dark:hover:text-brand-400"
+                title={t(i18nKey)}
+              >
+                <LayoutIcon type={id} />
+              </button>
+            ),
+          )}
         </div>
       )}
 
@@ -446,6 +449,79 @@ function AccountList({ accounts, focusedName, onRefresh, onUpdate, onFocused }: 
         </div>
       ) : (
         <>
+          {connecting.length > 0 && (
+            <div className="mb-3">
+              <h3 className="mb-1 text-xs font-medium tracking-wider text-gray-400 uppercase dark:text-gray-600">
+                {t("accounts.connecting_section")}
+              </h3>
+              <ul className="space-y-1 select-none">
+                {connecting.map((account, idx) => (
+                  <li key={account.window_id}>
+                    <div className="group relative flex h-9 items-center overflow-hidden rounded-lg border border-dashed border-gray-300 bg-gray-50 dark:border-gray-700 dark:bg-gray-900">
+                      {/* Dim left accent bar */}
+                      <div className="absolute top-0 bottom-0 left-0 w-[3px] shrink-0 bg-gray-300 dark:bg-gray-700" />
+
+                      {/* Connecting placeholder icon */}
+                      <div className="mr-2 ml-4 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-gray-300 bg-gray-100 dark:border-gray-600 dark:bg-gray-800">
+                        <svg
+                          width="11"
+                          height="11"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="text-gray-400 dark:text-gray-500"
+                        >
+                          <path d="M5 22h14" />
+                          <path d="M5 2h14" />
+                          <path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22" />
+                          <path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2" />
+                        </svg>
+                      </div>
+
+                      {/* Name */}
+                      <div className="min-w-0 flex-1">
+                        <span className="block truncate text-xs font-medium text-gray-400 italic dark:text-gray-600">
+                          {connecting.length > 1
+                            ? t("accounts.connecting_n", { n: idx + 1 })
+                            : t("accounts.connecting")}
+                        </span>
+                      </div>
+
+                      {/* Focus button */}
+                      <div className="ml-1 flex shrink-0 items-center gap-1 pr-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            focusAccount(account.character_name);
+                            onFocused(account.character_name);
+                          }}
+                          className="flex h-6 w-6 cursor-pointer items-center justify-center rounded text-gray-400 opacity-0 transition-colors group-hover:opacity-100 hover:text-brand-600 dark:text-gray-500 dark:hover:text-brand-400"
+                          title={t("accounts.focus_window")}
+                        >
+                          <svg
+                            width="14"
+                            height="14"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <circle cx="12" cy="12" r="3" />
+                            <path d="M12 1v4M12 19v4M1 12h4M19 12h4M4.2 4.2l2.8 2.8M17 17l2.8 2.8M4.2 19.8l2.8-2.8M17 7l2.8-2.8" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           {active.length > 0 && (
             <ul ref={listRef} className="space-y-1 select-none">
               {displayOrder.map((accountIdx) => {

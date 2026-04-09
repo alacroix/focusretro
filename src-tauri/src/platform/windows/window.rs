@@ -15,7 +15,7 @@ use windows::Win32::UI::Input::KeyboardAndMouse::{
 use windows::Win32::UI::WindowsAndMessaging::{
     BringWindowToTop, EnumWindows, GetForegroundWindow, GetWindowTextW, GetWindowThreadProcessId,
     IsIconic, IsWindow, IsWindowVisible, IsZoomed, PeekMessageW, SetForegroundWindow, SetWindowPos,
-    ShowWindow, MSG, PM_NOREMOVE, SWP_NOACTIVATE, SWP_NOZORDER, SW_MAXIMIZE, SW_RESTORE,
+    ShowWindow, HWND_TOP, MSG, PM_NOREMOVE, SWP_NOACTIVATE, SW_MAXIMIZE, SW_RESTORE,
 };
 
 /// Returns `(window_id, pid)` of the foreground window.
@@ -107,29 +107,46 @@ fn get_window_text(hwnd: HWND) -> String {
 impl WindowManager for WinWindowManager {
     fn list_dofus_windows(&self) -> Vec<GameWindow> {
         let mut result = Vec::new();
+        let mut connection_windows = Vec::new();
         for hwnd in enum_all_windows() {
             if unsafe { !IsWindowVisible(hwnd).as_bool() } {
                 continue;
             }
             let title = get_window_text(hwnd);
-            let idx = match title.find(" - Dofus Retro") {
-                Some(i) => i,
-                None => continue,
-            };
-            let character_name = title[..idx].trim().to_string();
-            if character_name.is_empty() {
-                continue;
-            }
             let mut pid = 0u32;
             unsafe { GetWindowThreadProcessId(hwnd, Some(&mut pid)) };
             let window_id = hwnd.0 as usize as u64;
-            result.push(GameWindow {
-                character_name,
-                window_id,
-                pid,
-                title,
-            });
+            if let Some(idx) = title.find(" - Dofus Retro") {
+                let character_name = title[..idx].trim().to_string();
+                if character_name.is_empty() {
+                    continue;
+                }
+                result.push(GameWindow {
+                    character_name,
+                    window_id,
+                    pid,
+                    title,
+                    is_connection_state: false,
+                });
+            } else if title.starts_with("Dofus Retro") {
+                connection_windows.push(GameWindow {
+                    character_name: String::new(), // filled in below
+                    window_id,
+                    pid,
+                    title,
+                    is_connection_state: true,
+                });
+            }
         }
+        let n_conn = connection_windows.len();
+        for (idx, win) in connection_windows.iter_mut().enumerate() {
+            win.character_name = if n_conn == 1 {
+                "[Connexion]".to_string()
+            } else {
+                format!("[Connexion {}]", idx + 1)
+            };
+        }
+        result.extend(connection_windows);
         result
     }
 
@@ -339,7 +356,7 @@ impl WindowManager for WinWindowManager {
                         continue;
                     }
                 }
-                let _ = SetWindowPos(hwnd, None, *x, *y, *cw, *ch, SWP_NOZORDER | SWP_NOACTIVATE);
+                let _ = SetWindowPos(hwnd, Some(HWND_TOP), *x, *y, *cw, *ch, SWP_NOACTIVATE);
             }
         }
 

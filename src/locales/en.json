@@ -22,6 +22,9 @@
   "accounts.skipped_section": "Skipped",
   "accounts.next": "Next account",
   "accounts.previous": "Previous account",
+  "accounts.connecting": "Connecting...",
+  "accounts.connecting_n": "Connection {{n}}",
+  "accounts.connecting_section": "Awaiting login",
 
   "messages.title": "Private Messages",
   "messages.clear": "Clear",

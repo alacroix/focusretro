@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { listAccounts, AccountView } from "../lib/commands";
 
@@ -45,6 +46,7 @@ interface Props {
 }
 
 export default function RadialSelector({ pos, hovered, accounts: accountsProp }: Props) {
+  const { t } = useTranslation();
   const [accounts, setAccounts] = useState<AccountView[]>(accountsProp ?? []);
 
   useEffect(() => {
@@ -245,7 +247,23 @@ export default function RadialSelector({ pos, hovered, accounts: accountsProp }:
                   "transform 0.15s cubic-bezier(0.34,1.56,0.64,1), border-color 0.10s, box-shadow 0.10s",
               }}
             >
-              {acc.icon_path ? (
+              {acc.is_connection_state ? (
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M5 22h14" />
+                  <path d="M5 2h14" />
+                  <path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22" />
+                  <path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2" />
+                </svg>
+              ) : acc.icon_path ? (
                 <img
                   src={`/icons/${acc.icon_path}.png`}
                   alt=""
@@ -277,7 +295,15 @@ export default function RadialSelector({ pos, hovered, accounts: accountsProp }:
                 transition: "color 0.10s, transform 0.15s cubic-bezier(0.34,1.56,0.64,1)",
               }}
             >
-              {acc.character_name}
+              {acc.is_connection_state
+                ? (() => {
+                    const conn = accounts.filter((a) => a.is_connection_state);
+                    const ci = conn.findIndex((a) => a.window_id === acc.window_id);
+                    return conn.length > 1
+                      ? t("accounts.connecting_n", { n: ci + 1 })
+                      : t("accounts.connecting");
+                  })()
+                : acc.character_name}
             </span>
           </div>
         );

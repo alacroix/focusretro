@@ -71,6 +71,7 @@ impl MacWindowManager {
 impl WindowManager for MacWindowManager {
     fn list_dofus_windows(&self) -> Vec<GameWindow> {
         let mut result = Vec::new();
+        let mut connection_windows = Vec::new();
 
         let options = kCGWindowListOptionOnScreenOnly | kCGWindowListExcludeDesktopElements;
         let window_list = unsafe { CGWindowListCopyWindowInfo(options, kCGNullWindowID) };
@@ -107,12 +108,39 @@ impl WindowManager for MacWindowManager {
                         window_id,
                         pid,
                         title,
+                        is_connection_state: false,
+                    });
+                } else if title.starts_with("Dofus Retro") {
+                    debug!(
+                        "Found connection-state Dofus window: {} (owner={}, pid={}, wid={})",
+                        title,
+                        owner.as_deref().unwrap_or("?"),
+                        pid,
+                        window_id
+                    );
+                    connection_windows.push(GameWindow {
+                        character_name: String::new(), // filled in below
+                        window_id,
+                        pid,
+                        title,
+                        is_connection_state: true,
                     });
                 }
             }
         }
 
         unsafe { CFRelease(window_list_ptr) };
+
+        // Assign display names to connection windows
+        let n_conn = connection_windows.len();
+        for (idx, win) in connection_windows.iter_mut().enumerate() {
+            win.character_name = if n_conn == 1 {
+                "[Connexion]".to_string()
+            } else {
+                format!("[Connexion {}]", idx + 1)
+            };
+        }
+        result.extend(connection_windows);
         result
     }
 
@@ -156,6 +184,12 @@ impl WindowManager for MacWindowManager {
                 "[MacWindowManager] Arranged {} windows: maximize",
                 windows.len()
             );
+            let mut seen_pids = std::collections::HashSet::new();
+            for window in windows {
+                if seen_pids.insert(window.pid) {
+                    let _ = activate_app(window.pid as i32);
+                }
+            }
             return Ok(());
         }
 
@@ -208,6 +242,14 @@ impl WindowManager for MacWindowManager {
             windows.len(),
             layout
         );
+
+        // Activate each unique PID so the game windows come to the foreground.
+        let mut seen_pids = std::collections::HashSet::new();
+        for window in windows {
+            if seen_pids.insert(window.pid) {
+                let _ = activate_app(window.pid as i32);
+            }
+        }
         Ok(())
     }
 }
@@ -410,6 +452,14 @@ fn set_window_frame_ax(
 
         CFRelease(pos_value as *const c_void);
         CFRelease(size_value as *const c_void);
+
+        // Raise the window before releasing the array that owns win_element.
+        let raise_action = CFString::new("AXRaise");
+        AXUIElementPerformAction(
+            win_element,
+            raise_action.as_concrete_TypeRef() as *const c_void,
+        );
+
         CFRelease(windows_value as *const c_void);
         CFRelease(app_element as *const c_void);
 

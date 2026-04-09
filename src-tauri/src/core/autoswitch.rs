@@ -439,6 +439,7 @@ mod tests {
             window_id: id,
             pid: 0,
             title: format!("{} - Dofus Retro v1.0", name),
+            is_connection_state: false,
         }
     }
 

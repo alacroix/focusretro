@@ -18,6 +18,7 @@ export interface AccountView {
   is_skipped: boolean;
   is_current: boolean;
   position: number;
+  is_connection_state: boolean;
 }
 
 export interface PermissionStatus {

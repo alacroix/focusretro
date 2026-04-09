@@ -22,6 +22,9 @@
   "accounts.skipped_section": "Ignorados",
   "accounts.next": "Cuenta siguiente",
   "accounts.previous": "Cuenta anterior",
+  "accounts.connecting": "Conectando...",
+  "accounts.connecting_n": "Conexión {{n}}",
+  "accounts.connecting_section": "En espera de conexión",
 
   "messages.title": "Mensajes privados",
   "messages.clear": "Borrar",

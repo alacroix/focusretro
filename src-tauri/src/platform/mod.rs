@@ -28,6 +28,8 @@ pub struct GameWindow {
     pub window_id: u64,
     pub pid: u32,
     pub title: String,
+    #[serde(default)]
+    pub is_connection_state: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

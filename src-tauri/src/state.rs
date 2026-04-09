@@ -53,6 +53,7 @@ pub struct AccountView {
     pub is_skipped: bool,
     pub is_current: bool,
     pub position: usize,
+    pub is_connection_state: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -555,9 +556,10 @@ impl AppState {
         let mut profiles = self.profiles.lock();
         let mut accounts = self.accounts.lock();
 
-        // Add newly detected windows not yet in profiles (preserves existing profiles)
+        // Add newly detected in-game windows not yet in profiles (preserves existing profiles).
+        // Connection-state windows are never persisted as profiles.
         let mut new_profiles_added = false;
-        for win in &windows {
+        for win in windows.iter().filter(|w| !w.is_connection_state) {
             if !profiles
                 .iter()
                 .any(|p| p.character_name.eq_ignore_ascii_case(&win.character_name))
@@ -573,7 +575,8 @@ impl AppState {
             }
         }
 
-        // Rebuild accounts in profile order, only for currently open windows
+        // Rebuild accounts in profile order, only for currently open in-game windows.
+        // Then append connection-state windows at the end (no profile needed).
         #[cfg(target_os = "windows")]
         let old_ids: std::collections::HashSet<u64> =
             accounts.iter().map(|w| w.window_id).collect();
@@ -582,10 +585,14 @@ impl AppState {
             .filter_map(|p| {
                 windows
                     .iter()
-                    .find(|w| w.character_name.eq_ignore_ascii_case(&p.character_name))
+                    .find(|w| {
+                        !w.is_connection_state
+                            && w.character_name.eq_ignore_ascii_case(&p.character_name)
+                    })
                     .cloned()
             })
             .collect();
+        accounts.extend(windows.iter().filter(|w| w.is_connection_state).cloned());
         #[cfg(target_os = "windows")]
         let new_ids: std::collections::HashSet<u64> =
             accounts.iter().map(|w| w.window_id).collect();
@@ -636,6 +643,7 @@ impl AppState {
                     is_skipped: profile.is_some_and(|p| p.is_skipped),
                     is_current: i == current_idx,
                     position: i,
+                    is_connection_state: win.is_connection_state,
                 }
             })
             .collect()
@@ -1012,6 +1020,7 @@ mod tests {
             window_id: id,
             pid: 0,
             title: format!("{} - Dofus Retro v1.0", name),
+            is_connection_state: false,
         }
     }
 
@@ -1092,6 +1101,7 @@ mod tests {
                     window_id: profiles.len() as u64,
                     pid: 1,
                     title: format!("{} - Dofus Retro v1.0", name),
+                    is_connection_state: false,
                 });
             }
         }
@@ -1295,6 +1305,7 @@ mod tests {
                     window_id: profiles.len() as u64,
                     pid: 1,
                     title: format!("{} - Dofus Retro v1.0", name),
+                    is_connection_state: false,
                 });
             }
         }
